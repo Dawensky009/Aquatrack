@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F3F3F3" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="/icone.svg" />
+    <!-- iOS ignore le manifeste : ces trois balises sont le seul moyen d'y
+         obtenir une icône correcte et un affichage plein écran. -->
+    <link rel="apple-touch-icon" href="/icone-192.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Variante historique, toujours nécessaire pour Safari iOS malgré son
+         statut déprécié : sans elle, l'app installée garde la barre d'adresse. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="AquaTrack" />
+    <meta name="description" content="Suivez vos ventes de gallons d'eau, gérez vos revenus et optimisez votre activité en un seul endroit." />
+    <title>Aqua Track</title>
+  </head>
+  <body>
+    <script>
+      // Applique le thème AVANT le premier rendu. Sans ce script inline,
+      // l'utilisateur en mode sombre verrait un éclair blanc à chaque
+      // ouverture, le temps que React monte.
+      ;(function () {
+        try {
+          var m = localStorage.getItem('kiosque-theme') || 'system'
+          var sombre =
+            m === 'dark' ||
+            (m === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.dataset.theme = sombre ? 'dark' : 'light'
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute('content', sombre ? '#0F0F12' : '#F3F3F3')
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light'
+        }
+      })()
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

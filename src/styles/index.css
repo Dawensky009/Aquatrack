@@ -1,0 +1,185 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/readex-pro';
+@import './tokens.css';
+
+/* ===========================================================================
+   Base
+   =========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Aucun rebond horizontal : la maquette est une colonne verticale. */
+  overflow-x: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* Les montants doivent s'aligner verticalement d'une ligne a l'autre.
+   Applique globalement : dans cette app, presque tous les chiffres sont
+   des montants ou des quantites. */
+input[inputmode='numeric'],
+.chiffres {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================================================
+   Utilitaires de composition
+   =========================================================================== */
+
+/* Carte : le motif de base de toute la maquette.
+   `min-width: 0` est indispensable : les enfants de grid et de flex ont par
+   defaut `min-width: auto` et refusent de se comprimer sous la largeur
+   intrinseque de leur contenu — un graphique ou un long libelle fait alors
+   deborder toute la page horizontalement sur un petit ecran. */
+.carte {
+  min-width: 0;
+  background: var(--surface);
+  border-radius: var(--radius-carte);
+  padding: var(--padding-carte);
+  box-shadow: var(--ombre-carte);
+}
+
+/* Meme raison, pour les colonnes qui portent les cartes. */
+.colonne {
+  min-width: 0;
+}
+
+.carte-noire {
+  background: var(--hero);
+  color: var(--sur-hero);
+}
+
+.carte-bleue {
+  background: var(--accent);
+  color: var(--sur-hero);
+}
+
+/* Grand chiffre : 34px, graisse moyenne, interlettrage resserre.
+   Repris tel quel de « 1842 » / « $85.742 » dans all_screen.png. */
+.chiffre-hero {
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.chiffre-stat {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.titre-ecran {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.titre-carte {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.sous-ligne {
+  font-size: 12px;
+  color: var(--texte-doux);
+}
+
+.carte-noire .sous-ligne,
+.carte-bleue .sous-ligne {
+  color: var(--sur-hero-doux);
+}
+
+/* Zone tactile confortable : la saisie se fait debout, au comptoir. */
+.cible-tactile {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Masque la barre de defilement des rangees de pilules horizontales,
+   sans empecher le defilement lui-meme. */
+.defile-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.defile-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===========================================================================
+   Animations
+   =========================================================================== */
+
+@keyframes apparition {
+  from {
+    opacity: 0;
+  }
+}
+
+/* La feuille monte du bas sur mobile. Sur desktop elle est centree : la
+   translation reste discrete pour ne pas donner l'impression d'un glissement
+   depuis le bord de l'ecran. */
+@keyframes montee {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+/* Code faux : une secousse breve dit « recommencez » sans texte a lire. */
+@keyframes secousse {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-7px);
+  }
+  75% {
+    transform: translateX(7px);
+  }
+}
+
+/* Respecte les utilisateurs qui reduisent les animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Icône de Aqua Track : goutte d'eau blanche sur le bleu de marque.
+       Dessinée à la main, aucune dépendance externe. Le fond couvre tout le
+       carré pour rester correct en version « maskable » (Android rogne les
+       bords en cercle ou en squircle selon le lanceur). -->
+  <rect width="512" height="512" fill="#2672DD"/>
+  <path d="M256 104c0 0 96 108 96 170a96 96 0 1 1-192 0c0-62 96-170 96-170z" fill="#FFFFFF"/>
+  <path d="M212 292a44 44 0 0 1 28-41" stroke="#2672DD" stroke-width="14" stroke-linecap="round" fill="none" opacity=".35"/>
+</svg>

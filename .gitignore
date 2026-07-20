@@ -1,0 +1,30 @@
+node_modules
+dist
+dist-ssr
+.vite
+
+# Outillage d'assistant, installé localement et reproductible.
+# Ce sont des dépendances de l'environnement de développement, pas du produit :
+# les versionner ajouterait 300 fichiers tiers qui noieraient le code de l'app.
+.agents
+.claude
+skills-lock.json
+# Service worker généré en développement par vite-plugin-pwa.
+dev-dist
+
+# Contient vos clés Supabase — ne doit jamais être publié.
+.env
+.env.local
+.env.*.local
+
+# Captures produites pendant la vérification visuelle.
+.playwright-mcp
+*.local
+
+.DS_Store
+Thumbs.db
+.idea
+*.suo
+*.njsproj
+*.sln
+*.sw?

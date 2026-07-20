@@ -1,0 +1,150 @@
+/* ===========================================================================
+   Aqua Track — jetons de design
+   ---------------------------------------------------------------------------
+   Source de verite unique du style. Les valeurs du theme clair proviennent des
+   references fournies dans Ressources/ :
+
+     - brading.png    : typographie (Readex Pro) et les 4 couleurs de marque
+     - all_screen.png : composants, densite, hierarchie
+
+   Le bleu, le noir et le gris ont ete verifies au pixel sur all_screen.png.
+   Le cyan (#22D3F5) a ete echantillonne sur les segments du donut.
+
+   ---------------------------------------------------------------------------
+   THEME SOMBRE
+
+   Les references ne couvrent que le clair. Le theme sombre n'est donc PAS une
+   inversion automatique — inverser un noir de marque donnerait un blanc
+   eblouissant. Il est compose : la hierarchie passe par l'elevation (le fond
+   est le plus sombre, les cartes plus claires) plutot que par le contraste
+   noir/blanc, et le bleu est eclairci pour rester lisible sur fond sombre.
+
+   ---------------------------------------------------------------------------
+   Les composants n'utilisent QUE les jetons semantiques (--surface, --action,
+   --accent...), jamais les couleurs de marque directement. C'est ce qui permet
+   aux deux themes de coexister sans dupliquer une seule ligne de composant.
+   =========================================================================== */
+
+@theme {
+  /* --- Couleurs de marque, invariantes (brading.png) --------------------- */
+  --color-marque-bleu: #2672dd;
+  --color-marque-noir: #222026;
+  --color-marque-gris: #f3f3f3;
+  --color-marque-blanc: #ffffff;
+
+  --font-sans: 'Readex Pro Variable', system-ui, -apple-system, sans-serif;
+
+  --radius-carte: 24px;
+  --radius-champ: 16px;
+  --radius-barre: 14px;
+  --radius-vignette: 12px;
+}
+
+/* ===========================================================================
+   Theme clair — la reference
+   =========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* --- Surfaces ---------------------------------------------------------- */
+  --fond: #f3f3f3;          /* fond de page */
+  --surface: #ffffff;       /* cartes */
+  --surface-doux: #f3f3f3;  /* champs, pastilles de categorie, vignettes */
+  --bordure: #e6e6e6;
+
+  /* --- Texte ------------------------------------------------------------- */
+  --texte: #222026;
+  --texte-doux: rgb(34 32 38 / 0.5);
+  --texte-tres-doux: rgb(34 32 38 / 0.35);
+
+  /* --- Carte hero --------------------------------------------------------
+     Sombre dans les DEUX themes : c'est elle qui porte le chiffre dominant.
+     En clair elle tranche par sa noirceur, en sombre par son elevation. */
+  --hero: #222026;
+  --sur-hero: #ffffff;
+  --sur-hero-doux: rgb(255 255 255 / 0.6);
+  --sur-hero-faible: rgb(255 255 255 / 0.15); /* gridlines pointillees */
+
+  /* --- Action forte ------------------------------------------------------
+     Bouton principal, segment actif, pastille d'alerte. Noir en clair,
+     clair en sombre : dans les deux cas, le maximum de contraste avec le
+     fond de page. */
+  --action: #222026;
+  --sur-action: #ffffff;
+
+  /* --- Accent ------------------------------------------------------------ */
+  --accent: #2672dd;
+  --accent-presse: #1f5fbc;
+  --sur-accent: #ffffff;
+
+  /* --- Couleurs de donnees ----------------------------------------------- */
+  --cyan: #22d3f5;
+  --gris-data: #e4e4e6;
+
+  /* --- Seule couleur hors planche ----------------------------------------
+     Le badge « Revenu », explicitement demande au brief. Isole ici, utilise
+     au seul endroit LigneJournal. */
+  --vert: #16a34a;
+  --vert-clair: #dcfce7;
+
+  /* --- Ombres ------------------------------------------------------------
+     Quasi imperceptibles : dans la maquette les cartes se detachent par le
+     contraste avec le fond, pas par une ombre. */
+  --ombre-carte: 0 1px 2px rgb(34 32 38 / 0.04);
+  --ombre-flottant: 0 8px 24px rgb(34 32 38 / 0.12);
+  --voile: rgb(34 32 38 / 0.45);
+
+  /* --- Gabarit ----------------------------------------------------------- */
+  --marge-ecran: 16px;
+  --gap-cartes: 12px;
+  --padding-carte: 20px;
+  --hauteur-nav: 72px;
+  --largeur-barre-laterale: 260px;
+}
+
+/* ===========================================================================
+   Theme sombre
+   =========================================================================== */
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Hierarchie par elevation : fond < carte < hero. */
+  --fond: #0f0f12;
+  --surface: #1a191f;
+  --surface-doux: #26252c;
+  --bordure: #2e2d35;
+
+  --texte: #ededef;
+  --texte-doux: rgb(237 237 239 / 0.55);
+  --texte-tres-doux: rgb(237 237 239 / 0.38);
+
+  /* Plus CLAIRE que les cartes, pour rester la surface dominante.
+     Le texte dessus demeure blanc, donc tous les graphiques traces en
+     --sur-hero fonctionnent sans changement. */
+  --hero: #2f2d37;
+  --sur-hero: #ffffff;
+  --sur-hero-doux: rgb(255 255 255 / 0.62);
+  --sur-hero-faible: rgb(255 255 255 / 0.16);
+
+  /* S'inverse : un bouton noir serait invisible sur un fond noir. */
+  --action: #ededef;
+  --sur-action: #17161b;
+
+  /* Le bleu de marque tombe a 3,1:1 sur ce fond. Eclairci d'un cran pour
+     repasser au-dessus du seuil, tout en gardant la meme teinte. */
+  --accent: #5b9bf5;
+  --accent-presse: #4a86dd;
+  --sur-accent: #10161f;
+
+  --cyan: #22d3f5;
+  --gris-data: #3a3942;
+
+  --vert: #4ade80;
+  --vert-clair: #14532d;
+
+  --ombre-carte: 0 1px 2px rgb(0 0 0 / 0.4);
+  --ombre-flottant: 0 8px 24px rgb(0 0 0 / 0.55);
+  --voile: rgb(0 0 0 / 0.62);
+}
