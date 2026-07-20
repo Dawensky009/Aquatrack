@@ -290,6 +290,24 @@ Chaque ligne porte son **identifiant** en dernière colonne. Il n'intéresse
 personne à la lecture, mais c'est lui qui permet de réimporter un fichier corrigé
 sans créer de doublons.
 
+### Mise en ligne
+
+**Vercel** héberge le site, **Supabase** garde la sauvegarde. Les deux sont
+indépendants : l'app fonctionne parfaitement déployée sans Supabase.
+
+`vercel.json` contient deux réglages **indispensables** :
+
+- une **réécriture SPA** — sans elle, ouvrir `/journal` directement renvoie une
+  404, et la PWA installée ne démarre pas du tout puisque son `start_url` est
+  `/tableau-de-bord` ;
+- un `Cache-Control: must-revalidate` sur `sw.js` — sans lui, un service worker
+  périmé reste servi depuis le cache et fige les utilisateurs sur une ancienne
+  version de l'app.
+
+> ⚠️ **Les variables d'environnement de Vite sont figées au moment du build.**
+> Les modifier dans Vercel n'a **aucun effet** tant que vous n'avez pas relancé
+> un déploiement. C'est le piège le plus courant.
+
 ### Sauvegarde vers Supabase (facultatif)
 
 1. Créez un projet sur [supabase.com](https://supabase.com) (le plan gratuit suffit)
@@ -301,15 +319,23 @@ sans créer de doublons.
    (dashboard Supabase → *Settings* → *API*)
 5. Redémarrez `npm run dev`
 
-Le badge en haut de l'écran passe alors de « Local » à « À jour ». Hors-ligne, il
-affiche le nombre de saisies en attente, qui partent automatiquement au retour du
-réseau.
+Puis dans l'app : **Réglages → Sauvegarde en ligne → Créer un compte**.
 
-> 🔒 **À faire avant tout usage réel.** Le schéma livré autorise la clé anonyme à
-> tout lire et tout écrire. Cette clé est visible dans le code envoyé au
-> navigateur : **quiconque l'obtient peut lire toute votre comptabilité.** La
-> section « VARIANTE SÉCURISÉE » à la fin de `schema.sql` explique comment
-> ajouter une authentification.
+Le badge passe de « Hors sauvegarde » à « À jour ». Hors-ligne, il affiche le
+nombre de saisies en attente, qui partent automatiquement au retour du réseau.
+
+**La connexion conditionne la sauvegarde, jamais l'usage.** Il n'y a pas d'écran
+de connexion au démarrage : l'app s'ouvre et fonctionne sans compte, ce qui est
+indispensable quand on encaisse sans réseau. Se déconnecter n'efface rien.
+
+> 🔒 **Chaque compte ne voit que ses propres données.** Les policies exigent
+> `authenticated` et filtrent sur `user_id`. La clé anonyme reste publique —
+> c'est normal : elle ne fait qu'identifier le projet, ce sont les policies qui
+> gardent la porte.
+>
+> **Le test qui valide le déploiement** : créez un second compte, connectez-vous
+> — il doit voir **zéro ligne**. Si les données du premier apparaissent, ne
+> mettez aucune donnée réelle en ligne.
 
 > ℹ️ Sur le plan gratuit, un projet Supabase **se met en pause après 7 jours
 > d'inactivité** et doit être réactivé depuis le dashboard. Vos données locales,

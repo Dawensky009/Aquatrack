@@ -4,6 +4,7 @@ import EnTete from '../components/EnTete.jsx'
 import Pastille from '../components/Pastille.jsx'
 import SegmentPills from '../components/SegmentPills.jsx'
 import SectionSecurite from '../components/SectionSecurite.jsx'
+import SectionCompte from '../components/SectionCompte.jsx'
 import ListeReordonnable from '../components/ListeReordonnable.jsx'
 import { ChampNombre, ChampTexte } from '../components/Champs.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
@@ -157,6 +158,8 @@ export default function Reglages() {
             </div>
           )}
         </section>
+
+        <SectionCompte />
 
         <SectionSecurite />
 

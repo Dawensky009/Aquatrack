@@ -16,6 +16,7 @@
  */
 
 import { supabase, supabaseConfigure } from './supabase.js'
+import { sessionCourante } from './auth.js'
 import * as db from './db.js'
 
 const LOT = 50
@@ -32,6 +33,12 @@ export async function etatSync() {
   const enAttente = await db.compterOutbox()
 
   if (!supabaseConfigure) return { statut: 'local', enAttente }
+
+  // Sans session, l'application reste pleinement utilisable — seule la
+  // sauvegarde distante est en pause. L'etat le dit clairement plutot que de
+  // laisser croire a une synchro qui n'a pas lieu.
+  if (!(await sessionCourante())) return { statut: 'non-connecte', enAttente }
+
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return { statut: 'hors-ligne', enAttente }
   }
@@ -125,7 +132,7 @@ export const SEAU_RECUS = 'recus'
  * Cinq images par passage au maximum. Le reste attendra le tour suivant :
  * mieux vaut progresser lentement que saturer un lien deja fragile.
  */
-async function televerserRecus() {
+async function televerserRecus(idCompte) {
   const aFaire = await db.recusATeleverser(5)
   if (!aFaire.length) return
 
@@ -133,7 +140,10 @@ async function televerserRecus() {
     const image = await db.lireImageRecu(recu.id, 'image')
     if (!image) continue
 
-    const chemin = `${recu.depense_id}/${recu.id}.jpg`
+    // Le chemin DOIT commencer par l'identifiant du compte : c'est ce sur quoi
+    // s'appuie la policy de stockage pour savoir a qui appartient l'image.
+    // Sans ce prefixe, chaque televersement serait rejete.
+    const chemin = `${idCompte}/${recu.depense_id}/${recu.id}.jpg`
     const { error } = await supabase.storage.from(SEAU_RECUS).upload(chemin, image, {
       contentType: recu.mime || 'image/jpeg',
       upsert: true,
@@ -160,13 +170,18 @@ export async function declencherSync() {
     return { statut: 'hors-ligne' }
   }
 
+  // Sans session, rien ne part. Les ecritures continuent de s'accumuler dans
+  // l'outbox et partiront a la connexion : aucune saisie n'est perdue.
+  const session = await sessionCourante()
+  if (!session) return { statut: 'non-connecte' }
+
   enCours = true
   try {
     await pousser()
     await tirer()
     // Les images passent en dernier, et leur echec ne remonte pas : les
     // chiffres sont deja sauvegardes, c'est ce qui compte.
-    await televerserRecus().catch((e) =>
+    await televerserRecus(session.user.id).catch((e) =>
       console.warn('[sync] reçus non téléversés :', e.message),
     )
     return { statut: 'a-jour' }

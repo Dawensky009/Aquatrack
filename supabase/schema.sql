@@ -1,23 +1,29 @@
 -- ===========================================================================
 -- Aqua Track — schéma Supabase
 -- ---------------------------------------------------------------------------
--- À exécuter une fois dans l'éditeur SQL de votre projet Supabase.
+-- À exécuter UNE FOIS dans l'éditeur SQL de votre projet Supabase.
+-- Le script est réexécutable sans risque : rien n'est détruit.
 --
 -- Rappel d'architecture : cette base n'est PAS la source de vérité. Elle est
 -- une sauvegarde distante d'IndexedDB, qui vit sur le téléphone. L'app
--- fonctionne intégralement sans elle.
+-- fonctionne intégralement sans elle, et sans connexion.
 --
 -- Les colonnes reprennent exactement la forme des objets stockés en local,
 -- pour que la synchronisation soit un simple upsert sans transformation.
 -- ===========================================================================
 
+
+-- ===========================================================================
+-- 1. TABLES
+-- ===========================================================================
+
 -- --- Journées (revenus) ----------------------------------------------------
--- Une ligne par jour d'activité. `date` est unique : c'est la contrainte qui
--- garantit qu'une journée ne peut pas être clôturée deux fois, y compris si
--- deux appareils synchronisent la même journée.
+-- Une ligne par jour d'activité.
 create table if not exists public.journees (
   id              uuid primary key,
-  date            date        not null unique,
+  user_id         uuid        not null default auth.uid()
+                              references auth.users(id) on delete cascade,
+  date            date        not null,
   montant         numeric     not null default 0,
   moncash         numeric     not null default 0,
 
@@ -37,13 +43,23 @@ create table if not exists public.journees (
   deleted         boolean     not null default false
 );
 
+-- L'unicité porte sur le COUPLE (compte, date), pas sur la date seule.
+-- Avec une contrainte globale, un second utilisateur ne pourrait pas clôturer
+-- une journée déjà clôturée par le premier.
+alter table public.journees drop constraint if exists journees_date_key;
+alter table public.journees drop constraint if exists journees_user_date_unique;
+alter table public.journees add  constraint journees_user_date_unique unique (user_id, date);
+
+
 -- --- Dépenses --------------------------------------------------------------
 create table if not exists public.depenses (
   id              uuid primary key,
+  user_id         uuid        not null default auth.uid()
+                              references auth.users(id) on delete cascade,
 
   -- `occurred_at` est la date de l'opération (éditable), `recorded_at` celle
-  -- de la saisie. Tous les agrégats utilisent la première : un camion reçu
-  -- hier et saisi ce matin doit compter pour hier.
+  -- de la première saisie. Tous les agrégats utilisent la première : un camion
+  -- reçu hier et saisi ce matin doit compter pour hier.
   occurred_at     timestamptz not null,
   recorded_at     timestamptz not null default now(),
 
@@ -68,9 +84,12 @@ create table if not exists public.depenses (
   deleted         boolean     not null default false
 );
 
+
 -- --- Catégories de dépenses ------------------------------------------------
 create table if not exists public.categories (
   id            uuid primary key,
+  user_id       uuid        not null default auth.uid()
+                            references auth.users(id) on delete cascade,
   nom           text        not null,
   color         text        not null,
   unit          text        not null default 'montant',
@@ -82,12 +101,15 @@ create table if not exists public.categories (
   deleted       boolean     not null default false
 );
 
+
 -- --- Reçus -----------------------------------------------------------------
--- Métadonnées seulement. Les images elles-mêmes vivent dans Supabase Storage
--- (voir la section « STOCKAGE DES IMAGES » plus bas) : une base Postgres n'est
--- pas faite pour héberger des photos, et le plan gratuit plafonne à 500 Mo.
+-- Métadonnées seulement. Les images vivent dans Supabase Storage (section 4) :
+-- une base Postgres n'est pas faite pour héberger des photos, et le plan
+-- gratuit plafonne à 500 Mo.
 create table if not exists public.recus (
   id              uuid primary key,
+  user_id         uuid        not null default auth.uid()
+                              references auth.users(id) on delete cascade,
   depense_id      uuid        not null,
   nom             text        not null default '',
   mime            text        not null default 'image/jpeg',
@@ -101,51 +123,34 @@ create table if not exists public.recus (
   deleted         boolean     not null default false
 );
 
--- --- Index -----------------------------------------------------------------
+
+-- ===========================================================================
+-- 2. INDEX
+-- ---------------------------------------------------------------------------
 -- La synchronisation ne redemande que ce qui a changé : ces index rendent le
--- « select ... where updated_at > dernier_pull » instantané.
-create index if not exists journees_updated_at_idx   on public.journees (updated_at);
-create index if not exists depenses_updated_at_idx   on public.depenses (updated_at);
-create index if not exists categories_updated_at_idx on public.categories (updated_at);
-create index if not exists recus_updated_at_idx      on public.recus (updated_at);
-create index if not exists depenses_occurred_at_idx  on public.depenses (occurred_at);
-create index if not exists recus_depense_id_idx      on public.recus (depense_id);
-
--- ===========================================================================
--- STOCKAGE DES IMAGES — à faire dans l'interface Supabase
--- ---------------------------------------------------------------------------
--- 1. Storage > New bucket > nom : « recus »
--- 2. Laissez-le PRIVÉ. Un seau public rendrait vos reçus — donc vos montants,
---    vos fournisseurs et parfois votre nom — accessibles à quiconque devine
---    une URL.
--- 3. Ajoutez la policy ci-dessous pour autoriser l'app à y écrire.
---
--- Comme pour les tables, cette policy est permissive : à durcir en même temps
--- que le reste (voir « VARIANTE SÉCURISÉE »).
---
---   create policy "acces anon - seau recus"
---     on storage.objects for all
---     to anon, authenticated
---     using (bucket_id = 'recus') with check (bucket_id = 'recus');
---
--- L'application redimensionne chaque photo à 1 600 px et la réencode en JPEG
--- avant l'envoi : comptez ~200 Ko par reçu, soit environ 5 000 reçus dans le
--- gigaoctet du plan gratuit.
+-- « select … where updated_at > dernier_pull » instantané.
 -- ===========================================================================
 
+create index if not exists journees_user_updated_idx   on public.journees   (user_id, updated_at);
+create index if not exists depenses_user_updated_idx   on public.depenses   (user_id, updated_at);
+create index if not exists categories_user_updated_idx on public.categories (user_id, updated_at);
+create index if not exists recus_user_updated_idx      on public.recus      (user_id, updated_at);
+create index if not exists depenses_occurred_at_idx    on public.depenses   (occurred_at);
+create index if not exists recus_depense_id_idx        on public.recus      (depense_id);
+
+
 -- ===========================================================================
--- SÉCURITÉ — À LIRE AVANT DE METTRE EN LIGNE
+-- 3. SÉCURITÉ — chaque compte ne voit que ses propres données
 -- ---------------------------------------------------------------------------
--- Les policies ci-dessous autorisent la clé anonyme à tout lire et tout
--- écrire. C'est suffisant pour un usage mono-utilisateur en test, MAIS :
+-- `to authenticated` et non `anon` : sans session, les tables sont invisibles.
 --
---   toute personne qui obtient l'URL du projet et la clé anon peut lire
---   l'intégralité de votre comptabilité, et la modifier.
+-- La clé anonyme reste publique — elle est embarquée dans le JavaScript envoyé
+-- au navigateur, c'est normal et sans danger. Elle ne fait qu'identifier le
+-- projet ; ce sont ces policies qui gardent la porte.
 --
--- Ces deux valeurs sont embarquées dans le JavaScript envoyé au navigateur :
--- elles ne sont pas secrètes. Avant tout usage réel, activez l'authentification
--- Supabase (email + mot de passe) et remplacez ces policies par celles de la
--- section « VARIANTE SÉCURISÉE » plus bas.
+-- `default auth.uid()` sur user_id est ce qui permet au client de n'envoyer
+-- que ses colonnes métier : Postgres remplit le propriétaire à l'insertion, et
+-- une mise à jour ne touchant pas la colonne conserve sa valeur.
 -- ===========================================================================
 
 alter table public.journees   enable row level security;
@@ -153,50 +158,59 @@ alter table public.depenses   enable row level security;
 alter table public.categories enable row level security;
 alter table public.recus      enable row level security;
 
-create policy "acces anon complet - recus"
-  on public.recus for all
-  to anon, authenticated
-  using (true) with check (true);
+drop policy if exists "proprietaire seul - journees"   on public.journees;
+drop policy if exists "proprietaire seul - depenses"   on public.depenses;
+drop policy if exists "proprietaire seul - categories" on public.categories;
+drop policy if exists "proprietaire seul - recus"      on public.recus;
 
-create policy "acces anon complet - journees"
-  on public.journees for all
-  to anon, authenticated
-  using (true) with check (true);
+create policy "proprietaire seul - journees" on public.journees for all
+  to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
-create policy "acces anon complet - depenses"
-  on public.depenses for all
-  to anon, authenticated
-  using (true) with check (true);
+create policy "proprietaire seul - depenses" on public.depenses for all
+  to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
-create policy "acces anon complet - categories"
-  on public.categories for all
-  to anon, authenticated
-  using (true) with check (true);
+create policy "proprietaire seul - categories" on public.categories for all
+  to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create policy "proprietaire seul - recus" on public.recus for all
+  to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
 
 -- ===========================================================================
--- VARIANTE SÉCURISÉE (recommandée dès que l'app contient de vraies données)
+-- 4. STOCKAGE DES REÇUS
 -- ---------------------------------------------------------------------------
--- 1. Activez « Email » dans Authentication > Providers, puis créez votre
---    compte.
--- 2. Ajoutez une colonne propriétaire à chaque table :
+-- Le seau est créé PRIVÉ. Un seau public rendrait vos reçus — donc vos
+-- montants, vos fournisseurs et parfois votre nom — accessibles à quiconque
+-- devine une URL.
 --
---      alter table public.journees   add column user_id uuid default auth.uid();
---      alter table public.depenses   add column user_id uuid default auth.uid();
---      alter table public.categories add column user_id uuid default auth.uid();
---
--- 3. Supprimez les trois policies ci-dessus :
---
---      drop policy "acces anon complet - journees"   on public.journees;
---      drop policy "acces anon complet - depenses"   on public.depenses;
---      drop policy "acces anon complet - categories" on public.categories;
---
--- 4. Créez celles-ci à la place, pour chaque table :
---
---      create policy "proprietaire seul" on public.journees for all
---        to authenticated
---        using (user_id = auth.uid()) with check (user_id = auth.uid());
---
--- 5. Ajoutez un écran de connexion dans l'app (supabase.auth.signInWithPassword).
---    Le reste du code n'a pas à changer : la synchro utilise déjà le client
---    authentifié.
+-- Le chemin des fichiers commence par l'identifiant du compte
+-- (`<user_id>/<depense_id>/<recu_id>.jpg`) : c'est ce qui permet à la policy
+-- de trancher à qui appartient une image.
 -- ===========================================================================
+
+insert into storage.buckets (id, name, public)
+values ('recus', 'recus', false)
+on conflict (id) do nothing;
+
+drop policy if exists "recus du proprietaire" on storage.objects;
+
+create policy "recus du proprietaire" on storage.objects for all
+  to authenticated
+  using      (bucket_id = 'recus' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'recus' and (storage.foldername(name))[1] = auth.uid()::text);
+
+
+-- ===========================================================================
+-- 5. VÉRIFICATION
+-- ---------------------------------------------------------------------------
+-- À exécuter après coup pour confirmer que tout est en place.
+-- Les quatre tables doivent afficher rowsecurity = true et une policy chacune.
+-- ===========================================================================
+
+-- select tablename, rowsecurity from pg_tables
+--   where schemaname = 'public' order by tablename;
+
+-- select tablename, policyname, roles from pg_policies
+--   where schemaname = 'public' order by tablename;
+
+-- select id, public from storage.buckets where id = 'recus';

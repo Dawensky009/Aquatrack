@@ -13,6 +13,7 @@ import Reglages from './pages/Reglages.jsx'
 import { useStore } from './store/useStore.js'
 import { demarrerSync } from './lib/sync.js'
 import { suivreSysteme } from './lib/theme.js'
+import { surChangementSession } from './lib/auth.js'
 
 /**
  * Coquille de l'application.
@@ -27,6 +28,7 @@ export default function App() {
   const themeSystemeChange = useStore((s) => s.themeSystemeChange)
   const applicationMasquee = useStore((s) => s.applicationMasquee)
   const evaluerVerrou = useStore((s) => s.evaluerVerrou)
+  const majSession = useStore((s) => s.majSession)
   const verrouille = useStore((s) => s.verrouille)
   const pret = useStore((s) => s.pret)
   const { pathname } = useLocation()
@@ -43,6 +45,10 @@ export default function App() {
   // En mode « système », l'app suit les changements de préférence de l'OS en
   // direct — sans avoir à être rechargée.
   useEffect(() => suivreSysteme(themeSystemeChange), [themeSystemeChange])
+
+  // La session peut changer sans passer par l'écran de connexion : jeton
+  // rafraîchi, expiré, ou déconnexion depuis un autre onglet.
+  useEffect(() => surChangementSession(majSession), [majSession])
 
   // Verrouillage : on note l'instant où l'app passe en arrière-plan, et on
   // décide au retour. `visibilitychange` couvre aussi bien le changement

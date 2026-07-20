@@ -11,6 +11,11 @@ import { useStore } from '../store/useStore.js'
  */
 const ETATS = {
   local: { icone: HardDrive, texte: 'Local', aide: 'Données enregistrées sur cet appareil' },
+  'non-connecte': {
+    icone: CloudOff,
+    texte: 'Hors sauvegarde',
+    aide: 'Connectez-vous dans Réglages pour sauvegarder en ligne',
+  },
   'hors-ligne': { icone: CloudOff, texte: 'Hors-ligne', aide: 'Vos saisies partiront au retour du réseau' },
   'en-cours': { icone: RefreshCw, texte: 'Synchro…', aide: 'Envoi en cours' },
   'en-attente': { icone: Cloud, texte: null, aide: 'En attente d’envoi' },

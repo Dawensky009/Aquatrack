@@ -404,7 +404,12 @@ export async function marquerEchec(seqs) {
 export async function fusionnerDepuisServeur(table, lignes) {
   const db = await base()
   const tx = db.transaction(table, 'readwrite')
-  for (const distante of lignes) {
+  for (const brute of lignes) {
+    // `user_id` est une notion serveur : le garder en local le renverrait
+    // ensuite dans l'outbox, et une reconnexion sur un autre compte tenterait
+    // d'ecrire des lignes portant l'identifiant du precedent.
+    const { user_id: _ignore, ...distante } = brute
+
     const locale = await tx.store.get(distante.id)
     if (!locale || distante.updated_at > locale.updated_at) {
       await tx.store.put(distante)

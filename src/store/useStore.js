@@ -19,6 +19,7 @@ import { declencherSync, etatSync } from '../lib/sync.js'
 import * as theme from '../lib/theme.js'
 import { importerFichier } from '../lib/echange.js'
 import { preparerCode, doitVerrouiller } from '../lib/verrou.js'
+import { sessionCourante } from '../lib/auth.js'
 
 /**
  * Verrou d'initialisation.
@@ -55,6 +56,18 @@ export const useStore = create((set, get) => ({
 
   /* --- Synchronisation -------------------------------------------------- */
   sync: { statut: 'local', enAttente: 0 },
+
+  /* --- Compte -------------------------------------------------------------
+     `null` signifie « pas connecte », ce qui est un etat parfaitement normal :
+     l'application fonctionne integralement sans compte. */
+  session: null,
+
+  majSession(session) {
+    set({ session })
+    // Une connexion doit declencher l'envoi de tout ce qui attend, sans que
+    // l'utilisateur ait a patienter jusqu'au prochain cycle de 60 s.
+    get().apresEcriture()
+  },
 
   /* --- Interface : la feuille de saisie --------------------------------- */
   feuille: null, // null | { type: 'cloture' | 'depense' | 'choix', donnees? }
@@ -137,6 +150,11 @@ export const useStore = create((set, get) => ({
       // Marque pose dans tous les cas : une base volontairement videe ne doit
       // pas se repeupler toute seule au rechargement suivant.
       await db.ecrireMeta('demo_generee', true)
+
+      // La session est lue avant de rendre l'app : sans cela, le badge
+      // afficherait « Hors sauvegarde » une fraction de seconde a chaque
+      // ouverture, alors que le compte est bien actif.
+      set({ session: await sessionCourante() })
 
       await get().recharger()
       set({ pret: true })
