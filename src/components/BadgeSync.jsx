@@ -16,6 +16,11 @@ const ETATS = {
     texte: 'Hors sauvegarde',
     aide: 'Connectez-vous dans Réglages pour sauvegarder en ligne',
   },
+  'sans-kiosque': {
+    icone: CloudOff,
+    texte: 'Kiosque à définir',
+    aide: 'Créez ou rejoignez un kiosque dans Réglages',
+  },
   'hors-ligne': { icone: CloudOff, texte: 'Hors-ligne', aide: 'Vos saisies partiront au retour du réseau' },
   'en-cours': { icone: RefreshCw, texte: 'Synchro…', aide: 'Envoi en cours' },
   'en-attente': { icone: Cloud, texte: null, aide: 'En attente d’envoi' },

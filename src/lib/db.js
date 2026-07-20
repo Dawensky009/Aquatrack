@@ -405,10 +405,14 @@ export async function fusionnerDepuisServeur(table, lignes) {
   const db = await base()
   const tx = db.transaction(table, 'readwrite')
   for (const brute of lignes) {
-    // `user_id` est une notion serveur : le garder en local le renverrait
-    // ensuite dans l'outbox, et une reconnexion sur un autre compte tenterait
-    // d'ecrire des lignes portant l'identifiant du precedent.
-    const { user_id: _ignore, ...distante } = brute
+    // `kiosque_id` est retire : il est repose par le serveur a chaque
+    // ecriture (valeur par defaut). Le garder en local ferait echouer les
+    // envois si le compte rejoignait un jour un autre kiosque.
+    //
+    // `user_id` est CONSERVE : il dit qui a saisi la ligne, et c'est ce qui
+    // permet d'afficher « saisi par Marie » quand plusieurs personnes
+    // utilisent le meme kiosque.
+    const { kiosque_id: _ignore, ...distante } = brute
 
     const locale = await tx.store.get(distante.id)
     if (!locale || distante.updated_at > locale.updated_at) {

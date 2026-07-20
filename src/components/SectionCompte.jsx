@@ -1,9 +1,19 @@
-import { useState } from 'react'
-import { Cloud, CloudOff, LogOut, Loader2, MailCheck } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Cloud, CloudOff, LogOut, Loader2, MailCheck, Store, UserPlus, Copy, Check, X } from 'lucide-react'
 import Pastille from './Pastille.jsx'
 import { ChampTexte } from './Champs.jsx'
 import { useStore } from '../store/useStore.js'
-import { connecter, inscrire, deconnecter, ErreurAuth } from '../lib/auth.js'
+import {
+  connecter,
+  inscrire,
+  deconnecter,
+  monKiosque,
+  creerKiosque,
+  rejoindreKiosque,
+  membresKiosque,
+  retirerMembre,
+  ErreurAuth,
+} from '../lib/auth.js'
 import { supabaseConfigure } from '../lib/supabase.js'
 
 /**
@@ -19,12 +29,28 @@ export default function SectionCompte() {
   const sync = useStore((s) => s.sync)
   const majSession = useStore((s) => s.majSession)
   const recharger = useStore((s) => s.recharger)
+  const rafraichirSync = useStore((s) => s.rafraichirSync)
 
   const [email, setEmail] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
   const [occupe, setOccupe] = useState(false)
   const [message, setMessage] = useState(null)
   const [inscription, setInscription] = useState(false)
+
+  const [kiosque, setKiosque] = useState(null)
+  const [membres, setMembres] = useState([])
+
+  const rafraichirKiosque = useCallback(async () => {
+    if (!session) return setKiosque(null)
+    const k = await monKiosque()
+    setKiosque(k)
+    setMembres(k ? await membresKiosque() : [])
+    rafraichirSync()
+  }, [session, rafraichirSync])
+
+  useEffect(() => {
+    rafraichirKiosque()
+  }, [rafraichirKiosque])
 
   /* --- Supabase non configure ------------------------------------------- */
   if (!supabaseConfigure) {
@@ -98,6 +124,14 @@ export default function SectionCompte() {
             </span>
           </span>
         </div>
+
+        <BlocKiosque
+          kiosque={kiosque}
+          membres={membres}
+          emailCourant={session.user?.email}
+          idCourant={session.user?.id}
+          onChange={rafraichirKiosque}
+        />
 
         <button
           onClick={async () => {
@@ -199,5 +233,213 @@ export default function SectionCompte() {
         </p>
       )}
     </section>
+  )
+}
+
+/**
+ * Le kiosque — l'unite de partage.
+ *
+ * Les donnees appartiennent au kiosque, pas au compte. Le proprietaire en cree
+ * un ; l'employe le rejoint avec un code a six caracteres. Tous deux voient
+ * alors exactement les memes chiffres, et chaque ligne garde la trace de qui
+ * l'a saisie.
+ */
+function BlocKiosque({ kiosque, membres, idCourant, onChange }) {
+  const [mode, setMode] = useState(null) // null | 'creer' | 'rejoindre'
+  const [nom, setNom] = useState('')
+  const [code, setCode] = useState('')
+  const [occupe, setOccupe] = useState(false)
+  const [erreur, setErreur] = useState(null)
+  const [copie, setCopie] = useState(false)
+
+  const moi = membres.find((m) => m.user_id === idCourant)
+  const suisProprietaire = moi?.role === 'proprietaire'
+
+  async function agir(action) {
+    setOccupe(true)
+    setErreur(null)
+    try {
+      await action()
+      await onChange()
+      setMode(null)
+      setCode('')
+    } catch (e) {
+      setErreur(e instanceof ErreurAuth ? e.message : 'Opération impossible.')
+    } finally {
+      setOccupe(false)
+    }
+  }
+
+  /* --- Pas encore de kiosque --------------------------------------------- */
+  if (!kiosque) {
+    return (
+      <div className="mt-4">
+        <Pastille bloc>
+          Votre compte n’est rattaché à aucun kiosque. Créez le vôtre, ou rejoignez celui
+          de votre patron avec son code.
+        </Pastille>
+
+        {mode === null && (
+          <div className="mt-3 flex flex-col gap-2">
+            <button
+              onClick={() => setMode('creer')}
+              className="flex items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-medium"
+              style={{ background: 'var(--action)', color: 'var(--sur-action)' }}
+            >
+              <Store size={15} strokeWidth={2} />
+              Créer mon kiosque
+            </button>
+            <button
+              onClick={() => setMode('rejoindre')}
+              className="flex items-center justify-center gap-2 rounded-full py-2.5 text-[13px]"
+              style={{ background: 'var(--surface-doux)', color: 'var(--texte-doux)' }}
+            >
+              <UserPlus size={15} strokeWidth={1.75} />
+              Rejoindre avec un code
+            </button>
+          </div>
+        )}
+
+        {mode === 'creer' && (
+          <div className="mt-3 flex flex-col gap-3">
+            <ChampTexte
+              label="Nom du kiosque"
+              valeur={nom}
+              onChange={setNom}
+              placeholder="Kiosque Delmas"
+            />
+            <Actions
+              occupe={occupe}
+              libelle="Créer"
+              onValider={() => agir(() => creerKiosque(nom || 'Mon kiosque'))}
+              onAnnuler={() => setMode(null)}
+            />
+          </div>
+        )}
+
+        {mode === 'rejoindre' && (
+          <div className="mt-3 flex flex-col gap-3">
+            <ChampTexte
+              label="Code d’invitation"
+              valeur={code}
+              onChange={(v) => setCode(v.toUpperCase())}
+              placeholder="A1B2C3"
+            />
+            <Actions
+              occupe={occupe}
+              libelle="Rejoindre"
+              onValider={() => agir(() => rejoindreKiosque(code))}
+              onAnnuler={() => setMode(null)}
+            />
+          </div>
+        )}
+
+        {erreur && (
+          <div className="mt-3">
+            <Pastille bloc>{erreur}</Pastille>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  /* --- Kiosque actif ------------------------------------------------------ */
+  return (
+    <div className="mt-4">
+      <div className="flex items-center gap-2.5">
+        <Store size={16} strokeWidth={1.75} style={{ color: 'var(--texte-doux)' }} />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{kiosque.nom}</span>
+        <span className="sous-ligne shrink-0">
+          {membres.length} membre{membres.length > 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Le code n'est montre qu'au proprietaire : c'est lui qui decide qui
+          entre. L'afficher a l'employe reviendrait a lui donner le pouvoir
+          d'ouvrir la comptabilite a n'importe qui. */}
+      {suisProprietaire && (
+        <div className="mt-3">
+          <p className="sous-ligne mb-1.5">Code à donner à votre employé</p>
+          <button
+            onClick={() => {
+              navigator.clipboard?.writeText(kiosque.code_invitation)
+              setCopie(true)
+              setTimeout(() => setCopie(false), 2000)
+            }}
+            className="flex w-full items-center justify-between gap-2 rounded-[14px] px-4 py-3"
+            style={{ background: 'var(--surface-doux)' }}
+          >
+            <span className="chiffres text-lg tracking-[0.25em]">
+              {kiosque.code_invitation}
+            </span>
+            {copie ? (
+              <Check size={16} strokeWidth={2.25} style={{ color: 'var(--vert)' }} />
+            ) : (
+              <Copy size={16} strokeWidth={1.75} style={{ color: 'var(--texte-doux)' }} />
+            )}
+          </button>
+        </div>
+      )}
+
+      <ul className="mt-3 flex flex-col">
+        {membres.map((m) => (
+          <li
+            key={m.user_id}
+            className="flex items-center gap-2.5 py-2"
+            style={{ borderTop: '1px solid var(--bordure)' }}
+          >
+            <span className="min-w-0 flex-1 truncate text-sm">
+              {m.nom || (m.user_id === idCourant ? 'Vous' : 'Membre')}
+              {m.user_id === idCourant && m.nom && ' (vous)'}
+            </span>
+            <span
+              className="shrink-0 rounded-full px-2 py-0.5 text-[10px]"
+              style={{ background: 'var(--surface-doux)', color: 'var(--texte-doux)' }}
+            >
+              {m.role === 'proprietaire' ? 'Propriétaire' : 'Employé'}
+            </span>
+            {suisProprietaire && m.user_id !== idCourant && (
+              <button
+                onClick={() => agir(() => retirerMembre(m.user_id))}
+                aria-label="Retirer ce membre"
+                className="shrink-0 p-1"
+                style={{ color: 'var(--texte-tres-doux)' }}
+              >
+                <X size={15} strokeWidth={2} />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {erreur && (
+        <div className="mt-3">
+          <Pastille bloc>{erreur}</Pastille>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Actions({ occupe, libelle, onValider, onAnnuler }) {
+  return (
+    <div className="flex gap-2">
+      <button
+        onClick={onValider}
+        disabled={occupe}
+        className="flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-medium disabled:opacity-50"
+        style={{ background: 'var(--action)', color: 'var(--sur-action)' }}
+      >
+        {occupe && <Loader2 size={14} className="animate-spin" />}
+        {libelle}
+      </button>
+      <button
+        onClick={onAnnuler}
+        className="px-3 text-[13px]"
+        style={{ color: 'var(--texte-doux)' }}
+      >
+        Annuler
+      </button>
+    </div>
   )
 }

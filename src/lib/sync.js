@@ -16,7 +16,7 @@
  */
 
 import { supabase, supabaseConfigure } from './supabase.js'
-import { sessionCourante } from './auth.js'
+import { sessionCourante, monKiosque } from './auth.js'
 import * as db from './db.js'
 
 const LOT = 50
@@ -42,6 +42,9 @@ export async function etatSync() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return { statut: 'hors-ligne', enAttente }
   }
+
+  // Connecte mais pas encore rattache a un kiosque : rien ne peut partir.
+  if (!(await monKiosque())) return { statut: 'sans-kiosque', enAttente }
   if (enCours) return { statut: 'en-cours', enAttente }
   return { statut: enAttente > 0 ? 'en-attente' : 'a-jour', enAttente }
 }
@@ -132,7 +135,7 @@ export const SEAU_RECUS = 'recus'
  * Cinq images par passage au maximum. Le reste attendra le tour suivant :
  * mieux vaut progresser lentement que saturer un lien deja fragile.
  */
-async function televerserRecus(idCompte) {
+async function televerserRecus(idKiosque) {
   const aFaire = await db.recusATeleverser(5)
   if (!aFaire.length) return
 
@@ -140,10 +143,10 @@ async function televerserRecus(idCompte) {
     const image = await db.lireImageRecu(recu.id, 'image')
     if (!image) continue
 
-    // Le chemin DOIT commencer par l'identifiant du compte : c'est ce sur quoi
-    // s'appuie la policy de stockage pour savoir a qui appartient l'image.
-    // Sans ce prefixe, chaque televersement serait rejete.
-    const chemin = `${idCompte}/${recu.depense_id}/${recu.id}.jpg`
+    // Le chemin commence par l'identifiant du KIOSQUE, pas du compte : sinon
+    // l'employe ne pourrait pas ouvrir un recu photographie par le
+    // proprietaire. C'est aussi ce sur quoi s'appuie la policy de stockage.
+    const chemin = `${idKiosque}/${recu.depense_id}/${recu.id}.jpg`
     const { error } = await supabase.storage.from(SEAU_RECUS).upload(chemin, image, {
       contentType: recu.mime || 'image/jpeg',
       upsert: true,
@@ -175,13 +178,19 @@ export async function declencherSync() {
   const session = await sessionCourante()
   if (!session) return { statut: 'non-connecte' }
 
+  // Connecte mais sans kiosque : la valeur par defaut de `kiosque_id` serait
+  // nulle et chaque insertion echouerait. On attend que l'utilisateur ait cree
+  // ou rejoint un kiosque plutot que d'empiler des echecs.
+  const kiosque = await monKiosque()
+  if (!kiosque) return { statut: 'sans-kiosque' }
+
   enCours = true
   try {
     await pousser()
     await tirer()
     // Les images passent en dernier, et leur echec ne remonte pas : les
     // chiffres sont deja sauvegardes, c'est ce qui compte.
-    await televerserRecus(session.user.id).catch((e) =>
+    await televerserRecus(kiosque.id).catch((e) =>
       console.warn('[sync] reçus non téléversés :', e.message),
     )
     return { statut: 'a-jour' }

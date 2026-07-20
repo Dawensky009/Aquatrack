@@ -1,6 +1,18 @@
 -- ===========================================================================
 -- Aqua Track — schéma Supabase
 -- ---------------------------------------------------------------------------
+-- ⚠️ INSTALLATION NEUVE UNIQUEMENT.
+--
+--    Si vous avez déjà exécuté une version antérieure de ce fichier, lancez
+--    `migration-partage.sql` À LA PLACE : il adapte les tables existantes sans
+--    rien perdre. Exécuter les deux n'est pas nécessaire.
+--
+-- ⚠️ Ce fichier NE CONTIENT PAS le partage entre plusieurs comptes.
+--    Il isole les données par compte — un employé qui crée son compte ouvrirait
+--    une application vide. Pour partager un kiosque à plusieurs, exécutez
+--    ensuite `migration-partage.sql`.
+--
+-- ---------------------------------------------------------------------------
 -- À exécuter UNE FOIS dans l'éditeur SQL de votre projet Supabase.
 -- Le script est réexécutable sans risque : rien n'est détruit.
 --

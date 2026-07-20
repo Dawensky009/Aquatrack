@@ -77,6 +77,67 @@ export async function deconnecter() {
   await ecrireMeta('dernier_pull', null)
 }
 
+/* ==========================================================================
+   Kiosque — l'unite de partage entre plusieurs comptes
+   ========================================================================== */
+
+/**
+ * Les donnees n'appartiennent pas a un COMPTE mais a un KIOSQUE. Plusieurs
+ * comptes le rejoignent et voient les memes chiffres ; `user_id` ne sert plus
+ * qu'a dire qui a saisi quoi.
+ *
+ * Sans cela, l'employe ouvrirait une application vide et ses saisies
+ * resteraient invisibles au proprietaire.
+ */
+export async function monKiosque() {
+  if (!supabaseConfigure) return null
+  const { data, error } = await supabase
+    .from('kiosques')
+    .select('id, nom, code_invitation')
+    .limit(1)
+    .maybeSingle()
+  if (error) return null
+  return data
+}
+
+export async function creerKiosque(nom = 'Mon kiosque', monNom = '') {
+  const { data, error } = await supabase.rpc('creer_kiosque', {
+    nom_kiosque: nom,
+    mon_nom: monNom,
+  })
+  if (error) throw new ErreurAuth(traduire(error))
+  return data?.[0] ?? null
+}
+
+export async function rejoindreKiosque(code, monNom = '') {
+  const { data, error } = await supabase.rpc('rejoindre_kiosque', {
+    code,
+    mon_nom: monNom,
+  })
+  if (error) {
+    if ((error.message ?? '').includes('Code invalide')) {
+      throw new ErreurAuth("Ce code d'invitation n'existe pas. Vérifiez les 6 caractères.")
+    }
+    throw new ErreurAuth(traduire(error))
+  }
+  return data?.[0] ?? null
+}
+
+/** Membres du kiosque, pour afficher qui a saisi quoi. */
+export async function membresKiosque() {
+  if (!supabaseConfigure) return []
+  const { data, error } = await supabase
+    .from('membres')
+    .select('user_id, role, nom, created_at')
+    .order('created_at')
+  return error ? [] : (data ?? [])
+}
+
+export async function retirerMembre(userId) {
+  const { error } = await supabase.rpc('retirer_membre', { cible: userId })
+  if (error) throw new ErreurAuth(traduire(error))
+}
+
 /** S'abonne aux changements de session. Renvoie une fonction de desabonnement. */
 export function surChangementSession(rappel) {
   if (!supabaseConfigure) return () => {}
