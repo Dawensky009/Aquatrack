@@ -5,7 +5,6 @@ import { ChampTexte } from './Champs.jsx'
 import { useStore } from '../store/useStore.js'
 import {
   connecter,
-  inscrire,
   deconnecter,
   monKiosque,
   creerKiosque,
@@ -36,7 +35,6 @@ export default function SectionCompte() {
   const [motDePasse, setMotDePasse] = useState('')
   const [occupe, setOccupe] = useState(false)
   const [message, setMessage] = useState(null)
-  const [inscription, setInscription] = useState(false)
 
   const [kiosque, setKiosque] = useState(null)
   const [membres, setMembres] = useState([])
@@ -80,19 +78,8 @@ export default function SectionCompte() {
     setOccupe(true)
     setMessage(null)
     try {
-      if (inscription) {
-        const { session: s, confirmationRequise } = await inscrire(email, motDePasse)
-        if (confirmationRequise) {
-          setMessage('Compte créé. Confirmez votre email, puis connectez-vous.')
-          setInscription(false)
-        } else {
-          majSession(s)
-          setMessage('Compte créé et connecté.')
-        }
-      } else {
-        majSession(await connecter(email, motDePasse))
-        setMessage('Connecté. Vos données vont se synchroniser.')
-      }
+      majSession(await connecter(email, motDePasse))
+      setMessage('Connecté. Vos données vont se synchroniser.')
       setMotDePasse('')
       await recharger()
     } catch (e) {
@@ -136,11 +123,26 @@ export default function SectionCompte() {
 
         <button
           onClick={async () => {
+            // Se déconnecter en laissant des saisies en attente les exposerait
+            // à disparaître : si quelqu'un d'autre se connecte ensuite sur ce
+            // téléphone, la base locale est vidée pour son kiosque.
+            if (sync.enAttente > 0) {
+              alert(
+                `${sync.enAttente} opération${sync.enAttente > 1 ? 's' : ''} n’${
+                  sync.enAttente > 1 ? 'ont' : 'a'
+                } pas encore été sauvegardée${sync.enAttente > 1 ? 's' : ''}.\n\n` +
+                  'Reconnectez-vous à internet et attendez « Tout est sauvegardé » ' +
+                  'avant de vous déconnecter.',
+              )
+              return
+            }
             if (
               !confirm(
                 'Se déconnecter ?\n\n' +
                   'Vos données restent sur cet appareil, mais la prochaine ouverture ' +
-                  'de l’application redemandera votre email et votre mot de passe.',
+                  'de l’application redemandera votre email et votre mot de passe.\n\n' +
+                  'Si quelqu’un d’autre s’y connecte, elles seront effacées de ce ' +
+                  'téléphone — elles resteront sauvegardées sur le serveur.',
               )
             )
               return
@@ -177,9 +179,7 @@ export default function SectionCompte() {
     <section className="carte">
       <h2 className="titre-carte">Sauvegarde en ligne</h2>
       <p className="sous-ligne mt-0.5 mb-4">
-        {inscription
-          ? 'Créez votre compte pour sauvegarder vos données hors de ce téléphone.'
-          : 'Connectez-vous pour sauvegarder vos données hors de ce téléphone.'}
+        Connectez-vous pour sauvegarder vos données hors de ce téléphone.
       </p>
 
       <div className="flex flex-col gap-3">
@@ -192,7 +192,7 @@ export default function SectionCompte() {
           <input
             type="password"
             value={motDePasse}
-            autoComplete={inscription ? 'new-password' : 'current-password'}
+            autoComplete="current-password"
             onChange={(e) => setMotDePasse(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && soumettre()}
             placeholder="6 caractères minimum"
@@ -208,19 +208,13 @@ export default function SectionCompte() {
           style={{ background: 'var(--action)', color: 'var(--sur-action)' }}
         >
           {occupe && <Loader2 size={16} className="animate-spin" />}
-          {inscription ? 'Créer le compte' : 'Se connecter'}
+          Se connecter
         </button>
 
-        <button
-          onClick={() => {
-            setInscription(!inscription)
-            setMessage(null)
-          }}
-          className="text-[13px] underline underline-offset-2"
-          style={{ color: 'var(--texte-doux)' }}
-        >
-          {inscription ? 'J’ai déjà un compte' : 'Créer un compte'}
-        </button>
+        {/* Pas de création de compte : c'est le propriétaire qui les remet. */}
+        <p className="sous-ligne">
+          Vos identifiants vous sont remis par le propriétaire du kiosque.
+        </p>
       </div>
 
       {message && (

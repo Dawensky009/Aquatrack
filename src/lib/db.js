@@ -674,6 +674,40 @@ export async function importerJSON(donnees) {
 }
 
 /** Vide tout, y compris l'outbox — utilise par « Reinitialiser ». */
+export const CLE_KIOSQUE_LOCAL = 'kiosque_local'
+
+/**
+ * Rattache la base locale a un kiosque, et la VIDE si l'appareil en change.
+ *
+ * Sans ce garde-fou, l'application se comportait de facon trompeuse : la base
+ * locale appartient a l'APPAREIL, pas au compte. Quelqu'un qui se connectait
+ * avec un compte neuf sur un telephone deja utilise retrouvait donc a l'ecran
+ * les chiffres de l'occupant precedent — des chiffres qu'il n'avait aucun
+ * droit de voir, et dont il ne pouvait pas deviner l'origine.
+ *
+ * Pire : la moindre modification de sa part remettait ces lignes dans la file
+ * d'envoi, et les recopiait dans SON kiosque. La comptabilite de l'un se
+ * serait deversee dans celle de l'autre.
+ *
+ * Vider est sans risque des lors que tout est deja parti sur le serveur —
+ * c'est pourquoi la deconnexion refuse de laisser des saisies en attente.
+ */
+export async function rattacherAuKiosque(idKiosque) {
+  const precedent = await lireMeta(CLE_KIOSQUE_LOCAL, null)
+  const change = Boolean(precedent) && precedent !== idKiosque
+
+  if (change) {
+    await toutEffacer()
+    // Le curseur doit repartir de zero, sinon le nouveau kiosque ne
+    // redescendrait que ses lignes modifiees depuis le dernier passage — et
+    // l'appareil resterait a moitie vide.
+    await ecrireMeta('dernier_pull', null)
+  }
+
+  await ecrireMeta(CLE_KIOSQUE_LOCAL, idKiosque)
+  return change
+}
+
 export async function toutEffacer() {
   const db = await base()
   const stores = [...TABLES, 'recus_images', 'reglages', 'outbox']

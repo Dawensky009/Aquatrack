@@ -279,6 +279,19 @@ export async function declencherSync() {
   const kiosque = await monKiosque()
   if (!kiosque) return { statut: 'sans-kiosque' }
 
+  // Garde-fou : la base locale porte le kiosque auquel elle appartient. Si le
+  // compte connecte en sert un autre, on ne touche a RIEN — pousser
+  // deverserait la comptabilite d'un kiosque dans celle d'un autre, et tirer
+  // melangerait les deux. Le cas est normalement traite a la configuration ;
+  // ceci le rattrape si l'appartenance a change entre-temps.
+  const local = await db.lireMeta(db.CLE_KIOSQUE_LOCAL, null)
+  if (!local) {
+    await db.ecrireMeta(db.CLE_KIOSQUE_LOCAL, kiosque.id)
+  } else if (local !== kiosque.id) {
+    console.warn('[sync] données locales d’un autre kiosque — synchro suspendue')
+    return { statut: 'kiosque-different' }
+  }
+
   enCours = true
   try {
     // Le push ne leve plus : un refus sur une table ne doit pas empecher le

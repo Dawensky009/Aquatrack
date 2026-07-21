@@ -2,14 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Droplet, Loader2, Store, UserPlus, WifiOff } from 'lucide-react'
 import Pastille from './Pastille.jsx'
 import { useStore } from '../store/useStore.js'
-import {
-  connecter,
-  inscrire,
-  creerKiosque,
-  rejoindreKiosque,
-  monKiosque,
-  ErreurAuth,
-} from '../lib/auth.js'
+import { connecter, creerKiosque, rejoindreKiosque, monKiosque, ErreurAuth } from '../lib/auth.js'
 
 /**
  * Ecran d'entree — premiere ouverture de l'appareil.
@@ -32,7 +25,6 @@ export default function EcranConnexion() {
   const session = useStore((s) => s.session)
 
   const [etape, setEtape] = useState(session ? 'kiosque' : 'compte')
-  const [inscription, setInscription] = useState(false)
   const [email, setEmail] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
   const [occupe, setOccupe] = useState(false)
@@ -97,17 +89,7 @@ export default function EcranConnexion() {
       return
     }
     await agir(
-      async () => {
-        if (inscription) {
-          const { session: s, confirmationRequise } = await inscrire(email, motDePasse)
-          if (confirmationRequise) {
-            throw new ErreurAuth('Compte créé. Confirmez votre email, puis connectez-vous.')
-          }
-          majSession(s)
-        } else {
-          majSession(await connecter(email, motDePasse))
-        }
-      },
+      async () => majSession(await connecter(email, motDePasse)),
       () => setEtape('kiosque'),
     )
   }
@@ -165,19 +147,15 @@ export default function EcranConnexion() {
             />
 
             <BoutonPlein occupe={occupe} onClick={soumettreCompte}>
-              {inscription ? 'Créer le compte' : 'Se connecter'}
+              Se connecter
             </BoutonPlein>
 
-            <button
-              onClick={() => {
-                setInscription(!inscription)
-                setErreur(null)
-              }}
-              className="mt-1 text-[13px] underline underline-offset-2"
-              style={{ color: 'var(--texte-doux)' }}
-            >
-              {inscription ? 'J’ai déjà un compte' : 'Créer un compte'}
-            </button>
+            {/* Aucune création de compte ici : les identifiants sont remis par
+                le propriétaire du kiosque. Laisser l'inscription ouverte
+                permettrait à n'importe quel visiteur du site de s'inscrire. */}
+            <p className="sous-ligne mt-1 text-center">
+              Vos identifiants vous sont remis par le propriétaire du kiosque.
+            </p>
           </div>
         )}
 

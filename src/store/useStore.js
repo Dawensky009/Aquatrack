@@ -19,7 +19,7 @@ import { declencherSync, etatSync } from '../lib/sync.js'
 import * as theme from '../lib/theme.js'
 import { importerFichier } from '../lib/echange.js'
 import { preparerCode, doitVerrouiller } from '../lib/verrou.js'
-import { sessionCourante, membresKiosque } from '../lib/auth.js'
+import { sessionCourante, membresKiosque, monKiosque } from '../lib/auth.js'
 import { supabaseConfigure } from '../lib/supabase.js'
 
 /**
@@ -120,7 +120,20 @@ export const useStore = create((set, get) => ({
    * en double des la premiere synchronisation.
    */
   async terminerConfiguration({ rejoint = false, monNom = '' } = {}) {
-    if (rejoint) await db.abandonnerCategoriesParDefaut()
+    // Si cet appareil servait un AUTRE kiosque, sa base est videe ici. C'est
+    // ce qui garantit qu'un compte neuf ouvre un tableau de bord vide, et non
+    // les chiffres de la personne qui utilisait le telephone avant lui.
+    const kiosque = await monKiosque().catch(() => null)
+    const changeDeKiosque = kiosque ? await db.rattacherAuKiosque(kiosque.id) : false
+
+    if (changeDeKiosque) {
+      // La base est vide. Celui qui CREE un kiosque a besoin de ses categories
+      // de depart ; celui qui en REJOINT un recevra celles du kiosque, et les
+      // amorcer ferait doublon.
+      if (!rejoint) await db.amorcerCategories()
+    } else if (rejoint) {
+      await db.abandonnerCategoriesParDefaut()
+    }
 
     // Le nom saisi devient celui qui salue sur l'accueil. S'il est vide — cas
     // de l'etape franchie automatiquement — on va le chercher aupres du
@@ -333,6 +346,20 @@ export const useStore = create((set, get) => ({
    */
   async apresSync(resultat) {
     if (resultat?.modifie) await get().recharger()
+
+    // Filet de securite : un appareil ne doit JAMAIS se retrouver sans aucune
+    // categorie — il deviendrait impossible d'enregistrer une depense.
+    //
+    // Le cas se produit quand on abandonne les categories amorcees d'office
+    // pour recevoir celles du kiosque, et que le kiosque n'en a aucune : rien
+    // ne remplace ce qu'on vient de jeter.
+    if (get().categories.length === 0) {
+      await db.amorcerCategories()
+      await get().recharger()
+      declencherSync().then((r) => get().apresSync(r))
+      return
+    }
+
     get().rafraichirSync()
   },
 
