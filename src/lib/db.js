@@ -344,6 +344,22 @@ export async function supprimerRecu(id) {
   return supprimer('recus', id)
 }
 
+/**
+ * Supprime une depense ET les recus qui la justifient.
+ *
+ * Les laisser derriere ne ferait pas qu'encombrer : leurs photos resteraient
+ * dans le stockage Supabase indefiniment, rattachees a une depense qui n'existe
+ * plus, et plus rien ne declencherait leur purge.
+ */
+export async function supprimerDepense(id) {
+  const db = await base()
+  const recus = await db.getAll('recus')
+  for (const r of recus.filter((x) => x.depense_id === id && !x.deleted)) {
+    await supprimerRecu(r.id)
+  }
+  return supprimer('depenses', id)
+}
+
 /** Recus dont l'image n'a pas encore ete televersee. */
 export async function recusATeleverser(limite = 5) {
   const db = await base()

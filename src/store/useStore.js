@@ -312,6 +312,13 @@ export const useStore = create((set, get) => ({
     get().apresEcriture()
   },
 
+  /** Supprime une depense avec les recus qui la justifient. */
+  async supprimerDepense(id) {
+    await db.supprimerDepense(id)
+    await get().recharger()
+    get().apresEcriture()
+  },
+
   async supprimerLigne(table, id) {
     await db.supprimer(table, id)
     await get().recharger()

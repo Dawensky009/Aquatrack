@@ -88,6 +88,13 @@
   --vert: #16a34a;
   --vert-clair: #dcfce7;
 
+  /* --- Action destructive -------------------------------------------------
+     Reservee a ce qui efface. Ne sert jamais a signaler une perte comptable :
+     un benefice negatif reste en encre normale, sans quoi le rouge perdrait
+     son sens d'avertissement. */
+  --rouge: #dc2626;
+  --rouge-clair: #fee2e2;
+
   /* --- Ombres ------------------------------------------------------------
      Quasi imperceptibles : dans la maquette les cartes se detachent par le
      contraste avec le fond, pas par une ombre. */
@@ -143,6 +150,9 @@
 
   --vert: #4ade80;
   --vert-clair: #14532d;
+
+  --rouge: #f87171;
+  --rouge-clair: #450a0a;
 
   --ombre-carte: 0 1px 2px rgb(0 0 0 / 0.4);
   --ombre-flottant: 0 8px 24px rgb(0 0 0 / 0.55);

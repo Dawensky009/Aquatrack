@@ -4,10 +4,13 @@ import Pastille from './Pastille.jsx'
 import SegmentPills from './SegmentPills.jsx'
 import { ChampMontant, ChampNombre, ChampDate, ChampTexte, Pilules } from './Champs.jsx'
 import Recus from './Recus.jsx'
+import BoutonSupprimer from './BoutonSupprimer.jsx'
 import { enregistrerRecu, supprimerRecu } from '../lib/db.js'
 import { useStore, useEtat } from '../store/useStore.js'
 import * as M from '../lib/metrics.js'
-import { cleJour, formatPrix, formatHTG, lireNombre, formatPourcent } from '../lib/format.js'
+import {
+  cleJour, formatPrix, formatHTG, formatDateLongue, lireNombre, formatPourcent,
+} from '../lib/format.js'
 
 /**
  * Saisie d'une depense.
@@ -52,6 +55,7 @@ async function appliquerRecus(depenseId, aGarder, existants) {
 export default function FeuilleDepense({ depense }) {
   const etat = useEtat()
   const ajouterDepense = useStore((s) => s.ajouterDepense)
+  const supprimerDepense = useStore((s) => s.supprimerDepense)
   const fermerFeuille = useStore((s) => s.fermerFeuille)
 
   // L'identifiant est fixe des l'ouverture pour que les recus puissent s'y
@@ -311,6 +315,22 @@ export default function FeuilleDepense({ depense }) {
           <p className="sous-ligne text-center">
             Cette dépense retirera {formatHTG(total)} de votre bénéfice.
           </p>
+        )}
+
+        {depense && (
+          <BoutonSupprimer
+            libelle="Supprimer cette dépense"
+            recapitulatif={`Supprimer « ${
+              depense.designation || categories.find((c) => c.id === depense.category_id)?.nom ||
+              'cette dépense'
+            } » du ${formatDateLongue(depense.occurred_at.slice(0, 10))}, ${formatHTG(
+              depense.total,
+            )} ?`}
+            onConfirmer={async () => {
+              await supprimerDepense(depense.id)
+              fermerFeuille()
+            }}
+          />
         )}
       </div>
     </Feuille>

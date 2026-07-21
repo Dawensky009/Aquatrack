@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import Feuille, { BoutonPrincipal } from './Feuille.jsx'
 import Pastille from './Pastille.jsx'
+import BoutonSupprimer from './BoutonSupprimer.jsx'
 import { ChampMontant, ChampNombre, ChampDate } from './Champs.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
 import * as M from '../lib/metrics.js'
-import { cleJour, formatHTG, formatPrix, formatGallons, lireNombre } from '../lib/format.js'
+import {
+  cleJour, formatHTG, formatPrix, formatGallons, formatDateLongue, lireNombre,
+} from '../lib/format.js'
 
 /**
  * Cloture d'une journee — l'action quotidienne de l'application.
@@ -25,6 +28,7 @@ import { cleJour, formatHTG, formatPrix, formatGallons, lireNombre } from '../li
 export default function FeuilleCloture({ dateInitiale }) {
   const etat = useEtat()
   const cloturerJour = useStore((s) => s.cloturerJour)
+  const supprimerLigne = useStore((s) => s.supprimerLigne)
   const fermerFeuille = useStore((s) => s.fermerFeuille)
 
   const prix = etat.reglages.prix_vente_gallon
@@ -123,6 +127,19 @@ export default function FeuilleCloture({ dateInitiale }) {
             Cette journée est déjà clôturée à {formatHTG(existante.montant)}. Enregistrer la
             remplacera.
           </Pastille>
+        )}
+
+        {existante && (
+          <BoutonSupprimer
+            libelle="Supprimer cette journée"
+            recapitulatif={`Supprimer la recette du ${formatDateLongue(date)}, ${formatHTG(
+              existante.montant,
+            )} ?`}
+            onConfirmer={async () => {
+              await supprimerLigne('journees', existante.id)
+              fermerFeuille()
+            }}
+          />
         )}
 
         {compteurActif && (
