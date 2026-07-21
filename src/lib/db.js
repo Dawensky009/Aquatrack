@@ -531,9 +531,24 @@ export async function toutEffacer() {
    Amorcage
    ========================================================================== */
 
+/**
+ * Identifiants FIXES et au format UUID.
+ *
+ * Ils etaient auparavant des chaines lisibles (« cat-reappro »), ce qui
+ * fonctionnait en local mais faisait echouer toute la synchronisation :
+ * Postgres attend un uuid et rejetait le lot entier, bloquant du meme coup
+ * les recettes et les depenses.
+ *
+ * Fixes plutot que tires au hasard : `seed.js` s'y refere directement, et des
+ * valeurs regenerees a chaque chargement de module ne correspondraient plus a
+ * ce qui est deja en base.
+ */
+export const ID_CAT_REAPPRO = '0a7d1f2e-5b3c-4d8e-9f10-1a2b3c4d5e6f'
+export const ID_CAT_MATERIEL = '1b8e2a3f-6c4d-4e9f-a021-2b3c4d5e6f70'
+
 export const CATEGORIES_DEFAUT = [
   {
-    id: 'cat-reappro',
+    id: ID_CAT_REAPPRO,
     // Court volontairement : sur un ecran de 390px, un libelle plus long est
     // tronque dans le journal. Renommable dans Reglages.
     nom: "Camion d'eau",
@@ -543,7 +558,7 @@ export const CATEGORIES_DEFAUT = [
     position: 0,
   },
   {
-    id: 'cat-materiel',
+    id: ID_CAT_MATERIEL,
     nom: 'Achat matériel',
     color: '#2672DD',
     unit: 'montant',
@@ -578,6 +593,74 @@ export async function amorcerCategories() {
   const nb = await db.count('categories')
   if (nb > 0) return
   for (const c of CATEGORIES_DEFAUT) await enregistrerCategorie(c)
+}
+
+const EST_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Convertit les identifiants de categorie hérités (« cat-reappro ») vers le
+ * format uuid.
+ *
+ * Sans cette reprise, une base creee avant la correction resterait bloquee :
+ * Postgres refuse ces identifiants, et l'outbox rejouerait indefiniment un lot
+ * voue a l'echec — emportant avec lui les recettes et les depenses, puisque
+ * `pousser()` s'arrete au premier refus.
+ *
+ * Les depenses qui pointaient vers l'ancienne categorie sont repointees dans
+ * la foulee, sinon elles perdraient leur libelle et leur nature (« suit les
+ * gallons »), ce qui fausserait le stock et la marge.
+ */
+const CORRESPONDANCE_HERITEE = {
+  'cat-reappro': ID_CAT_REAPPRO,
+  'cat-materiel': ID_CAT_MATERIEL,
+}
+
+export async function migrerIdentifiants() {
+  const db = await base()
+  let corrigees = 0
+
+  /* --- 1. Les categories elles-memes ------------------------------------ */
+  const categories = await db.getAll('categories')
+  for (const ancienne of categories.filter((c) => !EST_UUID.test(c.id))) {
+    const nouvelId = CORRESPONDANCE_HERITEE[ancienne.id] ?? crypto.randomUUID()
+    await ecrire('categories', { ...ancienne, id: nouvelId, updated_at: maintenant() })
+    // Suppression physique : cette ligne n'a jamais pu atteindre le serveur,
+    // une suppression logique n'aurait rien a y propager.
+    await db.delete('categories', ancienne.id)
+    corrigees++
+  }
+
+  /* --- 2. Les depenses qui les referencent -------------------------------
+     Traitees separement, et NON dans la boucle ci-dessus : au deuxieme
+     lancement les categories sont deja converties, mais des depenses peuvent
+     encore pointer vers l'ancien identifiant. Les lier ferait sauter cette
+     reprise et bloquerait la synchronisation pour toujours. */
+  const depenses = await db.getAll('depenses')
+  for (const d of depenses.filter((x) => x.category_id && !EST_UUID.test(x.category_id))) {
+    const nouvelId = CORRESPONDANCE_HERITEE[d.category_id]
+    if (!nouvelId) continue
+    await ecrire('depenses', { ...d, category_id: nouvelId, updated_at: maintenant() })
+    corrigees++
+  }
+
+  // Purge des entrees d'outbox vouees a l'echec.
+  //
+  // Il ne suffit pas de regarder l'identifiant de la ligne : une depense a bien
+  // un uuid valide, mais sa charge utile peut encore pointer vers l'ancienne
+  // categorie. C'est le CONTENU qu'il faut inspecter.
+  //
+  // On ne perd rien : les versions corrigees viennent d'etre remises en file
+  // juste au-dessus. Sans cette purge, `pousser()` ne lit que les 50 premieres
+  // entrees et rejouerait indefiniment les anciennes, sans jamais atteindre
+  // les nouvelles.
+  const invalide = (v) => typeof v === 'string' && v !== '' && !EST_UUID.test(v)
+  const enAttente = await db.getAll('outbox')
+  const aPurger = enAttente
+    .filter((e) => invalide(e.row_id) || invalide(e.payload?.category_id))
+    .map((e) => e.seq)
+  if (aPurger.length) await retirerOutbox(aPurger)
+
+  return corrigees
 }
 
 export async function estVierge() {

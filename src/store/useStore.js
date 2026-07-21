@@ -151,6 +151,10 @@ export const useStore = create((set, get) => ({
       // pas se repeupler toute seule au rechargement suivant.
       await db.ecrireMeta('demo_generee', true)
 
+      // Reprise des identifiants hérités : sans elle, une base créée avant la
+      // correction ne pourrait jamais se synchroniser.
+      await db.migrerIdentifiants()
+
       // La session est lue avant de rendre l'app : sans cela, le badge
       // afficherait « Hors sauvegarde » une fraction de seconde a chaque
       // ouverture, alors que le compte est bien actif.
