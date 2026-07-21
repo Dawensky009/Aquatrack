@@ -1,8 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Droplet, Loader2, Store, UserPlus, WifiOff } from 'lucide-react'
 import Pastille from './Pastille.jsx'
 import { useStore } from '../store/useStore.js'
-import { connecter, inscrire, creerKiosque, rejoindreKiosque, ErreurAuth } from '../lib/auth.js'
+import {
+  connecter,
+  inscrire,
+  creerKiosque,
+  rejoindreKiosque,
+  monKiosque,
+  ErreurAuth,
+} from '../lib/auth.js'
 
 /**
  * Ecran d'entree — premiere ouverture de l'appareil.
@@ -31,11 +38,44 @@ export default function EcranConnexion() {
   const [occupe, setOccupe] = useState(false)
   const [erreur, setErreur] = useState(null)
 
+  // Le test de rattachement ne doit avoir lieu qu'une fois : StrictMode
+  // rejoue les effets, et deux appels concurrents se marcheraient dessus.
+  const rattachementTeste = useRef(false)
+
   const [choixKiosque, setChoixKiosque] = useState(null) // null | 'creer' | 'rejoindre'
   const [nomKiosque, setNomKiosque] = useState('')
   const [code, setCode] = useState('')
 
   const horsReseau = typeof navigator !== 'undefined' && !navigator.onLine
+
+  /**
+   * Le compte appartient-il DEJA a un kiosque ?
+   *
+   * C'est le cas d'un second appareil, d'une reinstallation, ou d'un
+   * « Repartir de zero ». Lui reposer la question serait un piege :
+   * « Créer mon kiosque » ne creerait rien — le serveur renvoie le kiosque
+   * existant — mais l'appareil garderait ses categories amorcees, les
+   * enverrait, puis recevrait celles deja en ligne. D'ou des libelles en
+   * double dans la liste des depenses.
+   *
+   * On passe donc l'etape en silence, en abandonnant les categories locales
+   * comme le ferait un employe qui rejoint.
+   */
+  useEffect(() => {
+    if (etape !== 'kiosque' || rattachementTeste.current) return
+    rattachementTeste.current = true
+    let vivant = true
+    ;(async () => {
+      try {
+        if ((await monKiosque()) && vivant) await terminerConfiguration({ rejoint: true })
+      } catch {
+        // Serveur injoignable : on laisse simplement le choix s'afficher.
+      }
+    })()
+    return () => {
+      vivant = false
+    }
+  }, [etape, terminerConfiguration])
 
   async function agir(action, suite) {
     setOccupe(true)

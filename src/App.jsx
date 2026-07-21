@@ -25,7 +25,7 @@ import { surChangementSession } from './lib/auth.js'
  */
 export default function App() {
   const initialiser = useStore((s) => s.initialiser)
-  const rafraichirSync = useStore((s) => s.rafraichirSync)
+  const apresSync = useStore((s) => s.apresSync)
   const themeSystemeChange = useStore((s) => s.themeSystemeChange)
   const applicationMasquee = useStore((s) => s.applicationMasquee)
   const evaluerVerrou = useStore((s) => s.evaluerVerrou)
@@ -41,8 +41,11 @@ export default function App() {
 
   useEffect(() => {
     if (!pret) return
-    return demarrerSync(() => rafraichirSync())
-  }, [pret, rafraichirSync])
+    // La boucle de fond ne rafraichit pas que le badge : si le serveur a
+    // renvoye des lignes, l'ecran doit les montrer sans attendre un
+    // redemarrage.
+    return demarrerSync((_etat, resultat) => apresSync(resultat))
+  }, [pret, apresSync])
 
   // En mode « système », l'app suit les changements de préférence de l'OS en
   // direct — sans avoir à être rechargée.

@@ -444,6 +444,58 @@ export async function renumeroterCategorie(ancienId) {
   return nouvelId
 }
 
+/**
+ * Fusionne les categories par defaut apparaissant en double.
+ *
+ * Chaque appareil amorce ses propres categories, avec des identifiants tires
+ * au hasard. Si le meme kiosque est ouvert depuis un second appareil — ou
+ * apres une reinstallation, ou un « Repartir de zero » — les siennes partent
+ * sur le serveur et s'ajoutent a celles qui s'y trouvent deja : « Camion
+ * d'eau » apparait alors deux fois dans la liste des depenses.
+ *
+ * Seuls les LIBELLES PAR DEFAUT sont concernes. Une categorie creee ou
+ * renommee par l'utilisateur n'est jamais touchee, meme si son nom se repete :
+ * c'est un choix qui lui appartient.
+ *
+ * Le survivant est le plus petit identifiant. Ce critere n'a rien d'esthetique
+ * — il doit etre DETERMINISTE : deux appareils qui fusionnent chacun de leur
+ * cote doivent designer le meme, sans quoi ils s'effaceraient mutuellement.
+ */
+export async function fusionnerCategoriesHomonymes() {
+  const db = await base()
+  const categories = (await db.getAll('categories')).filter((c) => !c.deleted)
+  const nomsDefaut = new Set(CATEGORIES_DEFAUT.map((c) => c.nom))
+
+  const groupes = new Map()
+  for (const c of categories.filter((x) => nomsDefaut.has(x.nom))) {
+    if (!groupes.has(c.nom)) groupes.set(c.nom, [])
+    groupes.get(c.nom).push(c)
+  }
+
+  let fusionnees = 0
+  for (const [, groupe] of groupes) {
+    if (groupe.length < 2) continue
+    const [survivant, ...doublons] = [...groupe].sort((a, b) => (a.id < b.id ? -1 : 1))
+
+    // Les depenses sont repointees AVANT la suppression : sans cela elles
+    // perdraient leur libelle et leur nature (« suit les gallons »), ce qui
+    // fausserait le stock et la marge.
+    const depenses = await db.getAll('depenses')
+    for (const d of depenses.filter((x) => doublons.some((c) => c.id === x.category_id))) {
+      await ecrire('depenses', { ...d, category_id: survivant.id, updated_at: maintenant() })
+    }
+
+    // Suppression LOGIQUE : ces lignes existent probablement deja sur le
+    // serveur, et il faut que leur disparition s'y propage.
+    for (const c of doublons) {
+      await ecrire('categories', { ...c, deleted: true, updated_at: maintenant() })
+      fusionnees++
+    }
+  }
+
+  return fusionnees
+}
+
 export async function bloquerOutbox(seqs, raison = '') {
   const db = await base()
   const tx = db.transaction('outbox', 'readwrite')

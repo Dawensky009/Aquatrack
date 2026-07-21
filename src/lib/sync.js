@@ -147,6 +147,7 @@ async function isoler(table, entrees) {
 async function tirer() {
   const depuis = (await db.lireMeta(CLE_DERNIER_PULL)) ?? '1970-01-01T00:00:00.000Z'
   let plusRecent = depuis
+  let recues = 0
 
   for (const table of db.TABLES) {
     const { data, error } = await supabase
@@ -159,6 +160,7 @@ async function tirer() {
     if (!data?.length) continue
 
     await db.fusionnerDepuisServeur(table, data)
+    recues += data.length
     const dernier = data[data.length - 1].updated_at
     if (dernier > plusRecent) plusRecent = dernier
   }
@@ -166,6 +168,13 @@ async function tirer() {
   // Le curseur n'avance qu'apres une fusion reussie de TOUTES les tables :
   // une erreur en cours de route doit pouvoir etre rejouee integralement.
   if (plusRecent !== depuis) await db.ecrireMeta(CLE_DERNIER_PULL, plusRecent)
+
+  // C'est ici, et nulle part ailleurs, que les doublons apparaissent : les
+  // categories du serveur viennent de rejoindre celles amorcees en local.
+  const fusionnees = await db.fusionnerCategoriesHomonymes()
+  if (fusionnees > 0) console.info(`[sync] ${fusionnees} catégorie(s) en double fusionnée(s)`)
+
+  return recues + fusionnees
 }
 
 /* ==========================================================================
@@ -227,6 +236,15 @@ export async function declencherSync() {
     return { statut: 'hors-ligne' }
   }
 
+  // Tant que l'appareil n'a pas fini sa configuration, il ne synchronise
+  // rien. La connexion ouvre une session avant que le kiosque ne soit choisi :
+  // sans cette garde, une synchro partirait dans cet intervalle, enverrait les
+  // categories amorcees d'office et redescendrait celles du kiosque — les deux
+  // jeux se retrouveraient cote a cote, et « Camion d'eau » apparaitrait en
+  // double. C'est exactement la course que `abandonnerCategoriesParDefaut()`
+  // essayait de gagner.
+  if (!(await db.lireMeta('appareil_configure', false))) return { statut: 'non-configure' }
+
   // Sans session, rien ne part. Les ecritures continuent de s'accumuler dans
   // l'outbox et partiront a la connexion : aucune saisie n'est perdue.
   const session = await sessionCourante()
@@ -245,7 +263,7 @@ export async function declencherSync() {
     // l'appareil des donnees du serveur parce qu'il n'a pas su envoyer les
     // siennes n'aidait personne.
     const { erreur: erreurPush } = await pousser()
-    await tirer()
+    const modifie = (await tirer()) > 0
     // Les images passent en dernier, et leur echec ne remonte pas : les
     // chiffres sont deja sauvegardes, c'est ce qui compte.
     await televerserRecus(kiosque.id).catch((e) =>
@@ -253,9 +271,9 @@ export async function declencherSync() {
     )
     if (erreurPush) {
       console.warn('[sync] envoi incomplet, nouvelle tentative :', erreurPush.message)
-      return { statut: 'erreur', erreur: erreurPush }
+      return { statut: 'erreur', erreur: erreurPush, modifie }
     }
-    return { statut: 'a-jour' }
+    return { statut: 'a-jour', modifie }
   } catch (erreur) {
     // Volontairement silencieux cote UI : une synchro qui echoue n'est pas
     // une erreur pour l'utilisateur, ses donnees sont saines en local.
@@ -275,8 +293,11 @@ export function demarrerSync(surChangement = () => {}) {
   if (!supabaseConfigure) return () => {}
 
   const tenter = async () => {
-    await declencherSync()
-    surChangement(await etatSync())
+    // Le resultat porte `modifie` : sans le transmettre, les donnees
+    // descendues du serveur resteraient invisibles jusqu'au prochain
+    // redemarrage de l'application.
+    const resultat = await declencherSync()
+    surChangement(await etatSync(), resultat)
   }
 
   const auRetourReseau = () => tenter()

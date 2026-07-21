@@ -213,7 +213,7 @@ export const useStore = create((set, get) => ({
       set({ pret: true })
       get().evaluerVerrou()
       get().rafraichirSync()
-      declencherSync().then(() => get().rafraichirSync())
+      declencherSync().then((r) => get().apresSync(r))
     })()
     return promesseInit
   },
@@ -274,7 +274,19 @@ export const useStore = create((set, get) => ({
   /** Tente une synchro apres chaque ecriture, sans jamais bloquer l'UI. */
   apresEcriture() {
     get().rafraichirSync()
-    declencherSync().then(() => get().rafraichirSync())
+    declencherSync().then((r) => get().apresSync(r))
+  },
+
+  /**
+   * Prend acte du resultat d'une synchro.
+   *
+   * Recharge les donnees si le serveur en a renvoye : sans cela, ce qui a ete
+   * saisi sur l'autre telephone — ou les categories du kiosque qu'on vient de
+   * rejoindre — n'apparaitrait qu'au redemarrage suivant de l'application.
+   */
+  async apresSync(resultat) {
+    if (resultat?.modifie) await get().recharger()
+    get().rafraichirSync()
   },
 
   /* --- Donnees de demonstration ----------------------------------------- */
