@@ -367,6 +367,37 @@ export async function recusATeleverser(limite = 5) {
   return metas.filter((r) => !r.deleted && !r.chemin_distant).slice(0, limite)
 }
 
+/**
+ * Recus dont la fiche est la, mais dont l'IMAGE manque en local.
+ *
+ * C'est le cas de tout appareil qui recoit un recu par synchronisation : la
+ * ligne descend du serveur avec son `chemin_distant`, mais l'image, elle, vit
+ * dans le stockage et n'est pas rapatriee au passage. Sans ce rattrapage,
+ * l'employe verrait une vignette vide a la place du recu du proprietaire — et
+ * le proprietaire lui-meme les perdrait apres un changement de compte, qui
+ * vide la base locale.
+ */
+export async function recusATelecharger(limite = 5) {
+  const db = await base()
+  const metas = await db.getAll('recus')
+  const out = []
+  for (const r of metas) {
+    if (r.deleted || !r.chemin_distant) continue
+    // La presence de l'image est verifiee store par store : une fiche peut
+    // exister sans son blob, c'est precisement le cas qu'on repare.
+    const image = await db.get('recus_images', r.id)
+    if (!image?.image) out.push(r)
+    if (out.length >= limite) break
+  }
+  return out
+}
+
+/** Range une image rapatriee du serveur, avec sa vignette. */
+export async function enregistrerImageRecu(id, image, vignette) {
+  const db = await base()
+  await db.put('recus_images', { id, image, vignette: vignette ?? image })
+}
+
 /** Note qu'une image est arrivee sur le serveur. Repasse par l'outbox pour
  *  que le chemin distant soit connu des autres appareils. */
 export async function marquerRecuTeleverse(id, chemin) {

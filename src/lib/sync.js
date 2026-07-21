@@ -232,6 +232,35 @@ async function televerserRecus(idKiosque) {
 }
 
 /**
+ * Rapatrie les images de recus presentes sur le serveur mais absentes en local.
+ *
+ * Le miroir du televersement, et longtemps oublie : sans lui, un recu
+ * photographie sur un telephone n'etait JAMAIS visible sur un autre — la fiche
+ * arrivait, l'image restait au stockage. L'employe voyait un carre vide, et le
+ * proprietaire perdait ses recus des qu'un changement de compte vidait la base
+ * locale.
+ *
+ * Le blob descendu sert a la fois d'original et de vignette : reduire une image
+ * cote client demanderait un canvas, et le gain de place ne vaut pas la
+ * complexite pour cinq images par cycle.
+ */
+async function telechargerRecus() {
+  const aFaire = await db.recusATelecharger(5)
+  if (!aFaire.length) return
+
+  for (const recu of aFaire) {
+    const { data, error } = await supabase.storage.from(SEAU_RECUS).download(recu.chemin_distant)
+    if (error) {
+      // Un recu efface du stockage par un autre appareil laisse une fiche
+      // orpheline : on n'insiste pas, et on ne bloque pas les suivants.
+      console.warn('[sync] reçu introuvable au stockage :', error.message)
+      continue
+    }
+    await db.enregistrerImageRecu(recu.id, data, data)
+  }
+}
+
+/**
  * Efface du stockage les photos des recus supprimes.
  *
  * Sans cette passe, supprimer un recu ne liberait jamais la place qu'il occupe
@@ -315,6 +344,9 @@ export async function declencherSync() {
     // chiffres sont deja sauvegardes, c'est ce qui compte.
     await televerserRecus(kiosque.id).catch((e) =>
       console.warn('[sync] reçus non téléversés :', e.message),
+    )
+    await telechargerRecus().catch((e) =>
+      console.warn('[sync] reçus non téléchargés :', e.message),
     )
     await purgerRecusSupprimes().catch((e) =>
       console.warn('[sync] reçus non purgés :', e.message),

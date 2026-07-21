@@ -85,21 +85,34 @@ export default function Analytiques() {
         <section className="carte">
           <h2 className="titre-carte">Où part votre argent</h2>
           <p className="sous-ligne mt-0.5 mb-4">
-            Sur {formatHTG(c.repartition?.total ?? 0)} encaissés · {c.libellePeriode.toLowerCase()}
+            {c.repartition?.deficitaire
+              ? `${formatHTG(c.repartition.depense)} dépensés`
+              : `Sur ${formatHTG(c.repartition?.total ?? 0)} encaissés`}{' '}
+            · {c.libellePeriode.toLowerCase()}
           </p>
 
-          {!c.repartition ? (
+          {!c.repartition || c.repartition.depense <= 0 ? (
             <EtatVide
               icone={PieChart}
-              titre="Pas encore de données"
-              texte="Clôturez une journée et saisissez une dépense pour voir la répartition."
+              titre="Pas encore de dépenses"
+              texte="Saisissez une dépense pour voir où part votre argent."
             />
           ) : c.repartition.deficitaire ? (
-            <EtatVide
-              icone={PieChart}
-              titre="Vous avez dépensé plus que vous n'avez encaissé"
-              texte={`${formatHTG(c.repartition.depense)} de dépenses pour ${formatHTG(c.repartition.total)} de recettes. C'est courant le mois d'un gros réapprovisionnement : le stock acheté se vendra les semaines suivantes.`}
-            />
+            // Mois deficitaire : on montre la repartition des DEPENSES, et non
+            // leur part d'une recette qu'elles dEpassent. Une note explique le
+            // decalage plutot que de cacher le graphe qu'on est venu voir.
+            <>
+              <DonutCategories
+                parts={c.donutDepenses}
+                total={c.repartition.depense}
+                libelleCentre="dépensé"
+              />
+              <p className="sous-ligne mt-3">
+                {formatHTG(c.repartition.depense)} de dépenses pour{' '}
+                {formatHTG(c.repartition.total)} encaissés. Courant le mois d'un gros
+                réapprovisionnement : le stock acheté se vendra les semaines suivantes.
+              </p>
+            </>
           ) : (
             <DonutCategories parts={c.donut} total={c.repartition.total} />
           )}
@@ -270,6 +283,14 @@ function calculer(etat, fenetre, periodeGlobale) {
       ].filter((p) => p.montant > 0)
     : []
 
+  // Vue des seules depenses, pour le mois deficitaire. Le donut « part de la
+  // recette » ne peut alors rien montrer — le benefice serait une part
+  // negative. Mais la question « ou part mon argent » a quand meme une reponse :
+  // la repartition des depenses entre elles. C'est ce donut-la.
+  const donutDepenses = repartition
+    ? repartition.parts.map((p) => ({ nom: p.nom, montant: p.montant, couleur: p.couleur }))
+    : []
+
   return {
     revenus: M.totalRevenus(etat, mois),
     depenses: M.totalDepenses(etat, mois),
@@ -284,6 +305,7 @@ function calculer(etat, fenetre, periodeGlobale) {
     jourActuel: (new Date().getDay() + 6) % 7,
     repartition,
     donut,
+    donutDepenses,
     historique: M.historiquePrixAppro(etat, M.TOUT),
     suivi: M.suiviApprovisionnements(etat),
     prevision: M.previsionMois(etat),

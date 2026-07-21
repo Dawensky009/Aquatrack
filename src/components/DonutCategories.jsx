@@ -18,7 +18,12 @@ import { useSombre } from '../store/useStore.js'
  *   - Un intervalle de 2px separe les segments (`paddingAngle`), sinon deux
  *     teintes voisines se lisent comme une seule masse.
  */
-export default function DonutCategories({ parts: brutes, total, taille = 200 }) {
+export default function DonutCategories({
+  parts: brutes,
+  total,
+  taille = 200,
+  libelleCentre = 'encaissé',
+}) {
   const [actif, setActif] = useState(null)
   const sombre = useSombre()
 
@@ -105,7 +110,7 @@ export default function DonutCategories({ parts: brutes, total, taille = 200 }) 
               {formatHTG(actif != null ? parts[actif].montant : total)}
             </p>
             <p className="sous-ligne mt-0.5 max-w-[9ch] truncate">
-              {actif != null ? parts[actif].nom : 'encaissé'}
+              {actif != null ? parts[actif].nom : libelleCentre}
             </p>
           </div>
         </div>
