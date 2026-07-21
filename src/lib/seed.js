@@ -23,7 +23,7 @@
  */
 
 import { cleJour } from './format.js'
-import { enregistrerJournee, enregistrerDepense, amorcerCategories, CATEGORIES_DEFAUT } from './db.js'
+import { enregistrerJournee, enregistrerDepense, amorcerCategories } from './db.js'
 
 /**
  * Generateur pseudo-aleatoire deterministe (mulberry32).
@@ -82,10 +82,12 @@ function dateDecalee(joursAvant, reference = new Date()) {
 }
 
 export async function genererDemo(reference = new Date()) {
-  await amorcerCategories()
+  // Les identifiants sont tires au hasard a l'amorcage : il faut les recevoir
+  // de la base, ils ne sont plus devinables depuis le module.
+  const categories = await amorcerCategories()
 
-  const catAppro = CATEGORIES_DEFAUT.find((c) => c.suit_gallons)
-  const catMateriel = CATEGORIES_DEFAUT.find((c) => !c.suit_gallons)
+  const catAppro = categories.find((c) => c.suit_gallons)
+  const catMateriel = categories.find((c) => !c.suit_gallons)
   const rnd = alea(20260720)
 
   for (const c of CAMIONS) {

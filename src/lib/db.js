@@ -371,12 +371,87 @@ export async function poidsRecus() {
 export async function lireOutbox(limite = 100) {
   const db = await base()
   const toutes = await db.getAll('outbox')
-  return toutes.slice(0, limite)
+  // Les lignes mises en quarantaine sont ecartees : elles sont refusees par le
+  // serveur de facon definitive, et les relire indefiniment empecherait tout
+  // ce qui les suit de partir.
+  return toutes.filter((e) => !e.bloque).slice(0, limite)
 }
 
 export async function compterOutbox() {
   const db = await base()
-  return db.count('outbox')
+  const toutes = await db.getAll('outbox')
+  return toutes.filter((e) => !e.bloque).length
+}
+
+/**
+ * Lignes que le serveur refuse obstinement.
+ *
+ * Elles restent en base — rien n'est perdu, et elles reapparaitront dans un
+ * export — mais elles ne sont plus rejouees.
+ */
+export async function compterBloques() {
+  const db = await base()
+  const toutes = await db.getAll('outbox')
+  return toutes.filter((e) => e.bloque).length
+}
+
+/**
+ * Met une ligne en quarantaine apres plusieurs refus definitifs.
+ *
+ * C'est le garde-fou qui manquait : `pousser()` envoie par lots et s'arretait
+ * au premier refus, si bien qu'UNE ligne malformee suffisait a empecher pour
+ * toujours l'envoi des recettes et des depenses. Le cas s'est produit trois
+ * fois — identifiants non-uuid, puis identifiants de categorie en collision
+ * entre deux kiosques. Isoler le fautif laisse passer le reste.
+ */
+/**
+ * Renumerote une categorie que le serveur refuse definitivement.
+ *
+ * Le cas se produit quand son identifiant est deja pris par un AUTRE kiosque :
+ * `categories.id` est une cle primaire globale, si bien que l'upsert bascule
+ * vers une ligne invisible et la policy le refuse. Aucune insistance ne peut
+ * en venir a bout — il faut changer d'identifiant.
+ *
+ * Sans cela le degat depasse la categorie : `depenses.category_id` la
+ * reference, donc chaque depense rattachee serait refusee a son tour pour
+ * violation de cle etrangere.
+ *
+ * On ne renumerote qu'apres un refus AVERE : si la ligne appartenait vraiment
+ * a ce kiosque, le serveur l'aurait acceptee. Le risque d'orpheline est nul.
+ */
+export async function renumeroterCategorie(ancienId) {
+  const db = await base()
+  const categorie = await db.get('categories', ancienId)
+  if (!categorie) return null
+
+  const nouvelId = crypto.randomUUID()
+  await ecrire('categories', { ...categorie, id: nouvelId, updated_at: maintenant() })
+
+  const depenses = await db.getAll('depenses')
+  for (const d of depenses.filter((x) => x.category_id === ancienId)) {
+    await ecrire('depenses', { ...d, category_id: nouvelId, updated_at: maintenant() })
+  }
+
+  // L'ancienne ligne n'a jamais atteint le serveur : suppression physique, et
+  // purge de ce qui la concernait encore dans la file.
+  const enAttente = await db.getAll('outbox')
+  const seqs = enAttente
+    .filter((e) => e.row_id === ancienId || e.payload?.category_id === ancienId)
+    .map((e) => e.seq)
+  if (seqs.length) await retirerOutbox(seqs)
+  await db.delete('categories', ancienId)
+
+  return nouvelId
+}
+
+export async function bloquerOutbox(seqs, raison = '') {
+  const db = await base()
+  const tx = db.transaction('outbox', 'readwrite')
+  for (const seq of seqs) {
+    const l = await tx.store.get(seq)
+    if (l) await tx.store.put({ ...l, bloque: true, raison })
+  }
+  await tx.done
 }
 
 export async function retirerOutbox(seqs) {
@@ -532,23 +607,32 @@ export async function toutEffacer() {
    ========================================================================== */
 
 /**
- * Identifiants FIXES et au format UUID.
+ * Categories par defaut — SANS identifiant fige.
  *
- * Ils etaient auparavant des chaines lisibles (« cat-reappro »), ce qui
- * fonctionnait en local mais faisait echouer toute la synchronisation :
- * Postgres attend un uuid et rejetait le lot entier, bloquant du meme coup
- * les recettes et les depenses.
+ * L'identifiant est tire au hasard a l'amorcage, sur chaque appareil. Il l'a
+ * deja ete en chaine lisible (« cat-reappro »), puis en uuid FIXE ; les deux
+ * ont bloque la synchronisation, pour deux raisons differentes :
  *
- * Fixes plutot que tires au hasard : `seed.js` s'y refere directement, et des
- * valeurs regenerees a chaque chargement de module ne correspondraient plus a
- * ce qui est deja en base.
+ *  - chaine lisible : Postgres attend un uuid et rejetait le lot entier ;
+ *  - uuid fixe : `categories.id` est une cle primaire GLOBALE cote serveur.
+ *    Deux kiosques amorcaient donc les deux MEMES identifiants. Le second
+ *    voyait son `on conflict (id)` bascule vers une ligne appartenant a un
+ *    autre kiosque — donc invisible pour lui — et la policy la refusait
+ *    (« violates row-level security policy (USING expression) »).
+ *
+ * Dans les deux cas la consequence etait la meme, et grave : `pousser()`
+ * s'arrete au premier refus, si bien que les recettes et les depenses ne
+ * partaient plus jamais non plus.
+ *
+ * Au hasard, une collision entre deux kiosques est impossible. Le prix a payer
+ * est que l'appareil qui REJOINT un kiosque existant amorce ses propres
+ * categories avant de connaitre celles du patron : c'est
+ * `abandonnerCategoriesParDefaut()` qui s'en charge, juste avant la premiere
+ * synchronisation.
  */
-export const ID_CAT_REAPPRO = '0a7d1f2e-5b3c-4d8e-9f10-1a2b3c4d5e6f'
-export const ID_CAT_MATERIEL = '1b8e2a3f-6c4d-4e9f-a021-2b3c4d5e6f70'
-
 export const CATEGORIES_DEFAUT = [
   {
-    id: ID_CAT_REAPPRO,
+    cle: 'reappro',
     // Court volontairement : sur un ecran de 390px, un libelle plus long est
     // tronque dans le journal. Renommable dans Reglages.
     nom: "Camion d'eau",
@@ -558,7 +642,7 @@ export const CATEGORIES_DEFAUT = [
     position: 0,
   },
   {
-    id: ID_CAT_MATERIEL,
+    cle: 'materiel',
     nom: 'Achat matériel',
     color: '#2672DD',
     unit: 'montant',
@@ -566,6 +650,17 @@ export const CATEGORIES_DEFAUT = [
     position: 1,
   },
 ]
+
+/**
+ * Marques locales, dans `meta` — jamais synchronisees.
+ *
+ * Les appareils qui portent deja les anciens identifiants FIXES les gardent :
+ * ce sont eux qui possedent les lignes correspondantes sur le serveur, et les
+ * renumeroter y laisserait des orphelines qui redescendraient en double au
+ * prochain pull.
+ */
+const CLE_CATEGORIES_AMORCEES = 'categories_amorcees'
+const CLE_MIGRATION_CATEGORIES = 'migration_categories'
 
 /**
  * Reecrit les positions dans l'ordre fourni.
@@ -587,12 +682,66 @@ export async function reordonnerCategories(ids) {
   }
 }
 
-/** Cree les categories par defaut si la base est vierge. */
+/**
+ * Cree les categories par defaut si la base est vierge, et renvoie celles qui
+ * sont en place — appelees ou non par cet appel.
+ *
+ * Le retour porte les identifiants REELS : ils sont tires au hasard a
+ * l'amorcage, donc personne ne peut plus les deviner depuis le module.
+ */
 export async function amorcerCategories() {
   const db = await base()
-  const nb = await db.count('categories')
-  if (nb > 0) return
-  for (const c of CATEGORIES_DEFAUT) await enregistrerCategorie(c)
+  const existantes = await db.getAll('categories')
+  if (existantes.length > 0) return existantes
+
+  const creees = CATEGORIES_DEFAUT.map(({ cle, ...c }) => ({ ...c, id: crypto.randomUUID() }))
+  for (const c of creees) await enregistrerCategorie(c)
+
+  // La trace de l'amorcage vit dans `meta`, et non sur la categorie elle-meme :
+  // `enregistrerCategorie` ne retient que les colonnes connues du serveur, et
+  // un champ en plus serait de toute facon refuse par Postgres a l'envoi.
+  await ecrireMeta(CLE_CATEGORIES_AMORCEES, creees.map((c) => c.id))
+  return creees
+}
+
+/**
+ * Efface les categories amorcees d'office, avant de rejoindre un kiosque.
+ *
+ * Sans cela, l'employe arriverait avec ses deux categories a lui, puis
+ * recevrait par synchronisation les deux du patron : quatre lignes, deux
+ * libelles en double, et des depenses reparties entre les unes et les autres.
+ *
+ * Ne touche QUE des categories par defaut jamais modifiees ni utilisees : des
+ * qu'une depense s'y rattache ou que le nom a change, l'appareil a une
+ * histoire propre et rien n'est supprime.
+ */
+export async function abandonnerCategoriesParDefaut() {
+  const db = await base()
+  const amorcees = new Set((await lireMeta(CLE_CATEGORIES_AMORCEES, [])) ?? [])
+  if (amorcees.size === 0) return 0
+
+  const categories = await db.getAll('categories')
+  const depenses = await db.getAll('depenses')
+  const utilisees = new Set(depenses.map((d) => d.category_id))
+  const nomsDefaut = new Set(CATEGORIES_DEFAUT.map((c) => c.nom))
+
+  const jetables = categories.filter(
+    (c) => amorcees.has(c.id) && nomsDefaut.has(c.nom) && !utilisees.has(c.id),
+  )
+  // Une seule categorie renommee, utilisee, ou ajoutee a la main suffit a tout
+  // annuler : l'appareil a alors une histoire propre, qu'on n'efface pas.
+  if (jetables.length !== categories.length) return 0
+
+  // Suppression PHYSIQUE, et purge de l'outbox : ces lignes n'ont jamais
+  // atteint le serveur — une suppression logique n'aurait rien a y propager,
+  // et laisserait au contraire deux tombes a pousser.
+  const enAttente = await db.getAll('outbox')
+  const seqs = enAttente.filter((e) => jetables.some((c) => c.id === e.row_id)).map((e) => e.seq)
+  if (seqs.length) await retirerOutbox(seqs)
+  for (const c of jetables) await db.delete('categories', c.id)
+  await ecrireMeta(CLE_CATEGORIES_AMORCEES, [])
+
+  return jetables.length
 }
 
 const EST_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -610,19 +759,23 @@ const EST_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
  * la foulee, sinon elles perdraient leur libelle et leur nature (« suit les
  * gallons »), ce qui fausserait le stock et la marge.
  */
-const CORRESPONDANCE_HERITEE = {
-  'cat-reappro': ID_CAT_REAPPRO,
-  'cat-materiel': ID_CAT_MATERIEL,
-}
-
 export async function migrerIdentifiants() {
   const db = await base()
   let corrigees = 0
 
+  // La correspondance ancien → nouveau est PERSISTEE : les depenses peuvent
+  // encore pointer vers l'ancien identifiant au lancement suivant, alors que
+  // les categories, elles, sont deja converties.
+  const correspondance = { ...((await lireMeta(CLE_MIGRATION_CATEGORIES, {})) ?? {}) }
+
   /* --- 1. Les categories elles-memes ------------------------------------ */
   const categories = await db.getAll('categories')
   for (const ancienne of categories.filter((c) => !EST_UUID.test(c.id))) {
-    const nouvelId = CORRESPONDANCE_HERITEE[ancienne.id] ?? crypto.randomUUID()
+    // Au hasard, et non vers un uuid fige : deux appareils qui migrent le
+    // meme jour se retrouveraient sinon avec le meme identifiant, et le
+    // second serait refuse par le serveur pour toujours.
+    const nouvelId = crypto.randomUUID()
+    correspondance[ancienne.id] = nouvelId
     await ecrire('categories', { ...ancienne, id: nouvelId, updated_at: maintenant() })
     // Suppression physique : cette ligne n'a jamais pu atteindre le serveur,
     // une suppression logique n'aurait rien a y propager.
@@ -635,9 +788,11 @@ export async function migrerIdentifiants() {
      lancement les categories sont deja converties, mais des depenses peuvent
      encore pointer vers l'ancien identifiant. Les lier ferait sauter cette
      reprise et bloquerait la synchronisation pour toujours. */
+  if (corrigees > 0) await ecrireMeta(CLE_MIGRATION_CATEGORIES, correspondance)
+
   const depenses = await db.getAll('depenses')
   for (const d of depenses.filter((x) => x.category_id && !EST_UUID.test(x.category_id))) {
-    const nouvelId = CORRESPONDANCE_HERITEE[d.category_id]
+    const nouvelId = correspondance[d.category_id]
     if (!nouvelId) continue
     await ecrire('depenses', { ...d, category_id: nouvelId, updated_at: maintenant() })
     corrigees++

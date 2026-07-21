@@ -20,6 +20,7 @@ import * as theme from '../lib/theme.js'
 import { importerFichier } from '../lib/echange.js'
 import { preparerCode, doitVerrouiller } from '../lib/verrou.js'
 import { sessionCourante } from '../lib/auth.js'
+import { supabaseConfigure } from '../lib/supabase.js'
 
 /**
  * Verrou d'initialisation.
@@ -62,10 +63,38 @@ export const useStore = create((set, get) => ({
      l'application fonctionne integralement sans compte. */
   session: null,
 
+  /**
+   * L'appareil a-t-il deja ete configure une fois ?
+   *
+   * C'est ce drapeau qui rend l'application utilisable hors-ligne. La
+   * connexion est exigee a la PREMIERE ouverture seulement ; ensuite l'app
+   * s'ouvre sans reseau, indefiniment, meme si le jeton ne peut plus etre
+   * rafraichi. Exiger une session valide a chaque lancement rendrait
+   * l'application inutilisable un soir de coupure — et la recette du jour
+   * serait perdue.
+   */
+  appareilConfigure: true, // valeur sure : on ne bloque pas avant d'avoir lu
+
   majSession(session) {
     set({ session })
     // Une connexion doit declencher l'envoi de tout ce qui attend, sans que
     // l'utilisateur ait a patienter jusqu'au prochain cycle de 60 s.
+    get().apresEcriture()
+  },
+
+  /**
+   * Appelee quand compte ET kiosque sont en place.
+   *
+   * `rejoint` distingue les deux cas : celui qui CREE son kiosque garde ses
+   * categories, celui qui REJOINT celui d'un autre abandonne les siennes et
+   * recevra celles du kiosque. Sans cela l'employe verrait « Camion d'eau »
+   * en double des la premiere synchronisation.
+   */
+  async terminerConfiguration({ rejoint = false } = {}) {
+    if (rejoint) await db.abandonnerCategoriesParDefaut()
+    await db.ecrireMeta('appareil_configure', true)
+    set({ appareilConfigure: true })
+    await get().recharger()
     get().apresEcriture()
   },
 
@@ -166,7 +195,19 @@ export const useStore = create((set, get) => ({
       // La session est lue avant de rendre l'app : sans cela, le badge
       // afficherait « Hors sauvegarde » une fraction de seconde a chaque
       // ouverture, alors que le compte est bien actif.
-      set({ session: await sessionCourante() })
+      const session = await sessionCourante()
+
+      // L'appareil est repute configure si le drapeau est pose, si une session
+      // existe deja (utilisateur connecte avant l'ajout de cet ecran), ou si
+      // Supabase n'est pas configure du tout — dans ce dernier cas il n'y a
+      // aucun compte a demander, et bloquer serait absurde.
+      let configure = await db.lireMeta('appareil_configure', false)
+      if (!configure && (session || !supabaseConfigure)) {
+        configure = true
+        await db.ecrireMeta('appareil_configure', true)
+      }
+
+      set({ session, appareilConfigure: configure })
 
       await get().recharger()
       set({ pret: true })

@@ -15,6 +15,7 @@ import {
   ErreurAuth,
 } from '../lib/auth.js'
 import { supabaseConfigure } from '../lib/supabase.js'
+import { abandonnerCategoriesParDefaut } from '../lib/db.js'
 
 /**
  * Sauvegarde en ligne — connexion au compte Supabase.
@@ -135,11 +136,19 @@ export default function SectionCompte() {
 
         <button
           onClick={async () => {
+            if (
+              !confirm(
+                'Se déconnecter ?\n\n' +
+                  'Vos données restent sur cet appareil, mais la prochaine ouverture ' +
+                  'de l’application redemandera votre email et votre mot de passe.',
+              )
+            )
+              return
             setOccupe(true)
             await deconnecter()
             majSession(null)
+            useStore.setState({ appareilConfigure: false })
             setOccupe(false)
-            setMessage('Déconnecté. Vos données restent sur cet appareil.')
           }}
           disabled={occupe}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13px] disabled:opacity-50"
@@ -231,6 +240,20 @@ export default function SectionCompte() {
           {sync.enAttente > 1 ? 'ent' : ''} d’être sauvegardée
           {sync.enAttente > 1 ? 's' : ''} — elles partiront dès la connexion.
         </p>
+      )}
+
+      {/* Une ligne que le serveur refuse durablement est mise de côté pour ne
+          pas bloquer les autres. Le dire explicitement : la sauvegarde
+          distante est incomplète, même si l’appareil, lui, a tout. */}
+      {sync.bloques > 0 && (
+        <div className="mt-3">
+          <Pastille bloc>
+            {sync.bloques} opération{sync.bloques > 1 ? 's' : ''} n’a
+            {sync.bloques > 1 ? 'ont' : ''} pas pu être sauvegardée
+            {sync.bloques > 1 ? 's' : ''} en ligne. Vos chiffres restent complets sur
+            cet appareil — pensez à faire un export.
+          </Pastille>
+        </div>
       )}
     </section>
   )
@@ -328,7 +351,15 @@ function BlocKiosque({ kiosque, membres, idCourant, onChange }) {
             <Actions
               occupe={occupe}
               libelle="Rejoindre"
-              onValider={() => agir(() => rejoindreKiosque(code))}
+              onValider={() =>
+                agir(async () => {
+                  await rejoindreKiosque(code)
+                  // Les categories amorcees d'office feraient doublon avec
+                  // celles du kiosque rejoint. Sans effet si l'appareil a deja
+                  // une histoire propre.
+                  await abandonnerCategoriesParDefaut()
+                })
+              }
               onAnnuler={() => setMode(null)}
             />
           </div>

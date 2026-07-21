@@ -20,6 +20,9 @@ import { sessionCourante, monKiosque } from './auth.js'
 import * as db from './db.js'
 
 const LOT = 50
+
+/** Nombre de refus consecutifs avant de chercher la ligne fautive. */
+const SEUIL_ISOLEMENT = 3
 const CLE_DERNIER_PULL = 'dernier_pull'
 
 let enCours = false
@@ -31,22 +34,26 @@ let minuterie = null
 
 export async function etatSync() {
   const enAttente = await db.compterOutbox()
+  // Remonte jusqu'a l'interface : une ligne que le serveur refuse ne doit pas
+  // disparaitre en silence. Les chiffres restent justes en local, mais la
+  // sauvegarde distante est incomplete et l'utilisateur doit le savoir.
+  const bloques = await db.compterBloques()
 
-  if (!supabaseConfigure) return { statut: 'local', enAttente }
+  if (!supabaseConfigure) return { statut: 'local', enAttente, bloques }
 
   // Sans session, l'application reste pleinement utilisable — seule la
   // sauvegarde distante est en pause. L'etat le dit clairement plutot que de
   // laisser croire a une synchro qui n'a pas lieu.
-  if (!(await sessionCourante())) return { statut: 'non-connecte', enAttente }
+  if (!(await sessionCourante())) return { statut: 'non-connecte', enAttente, bloques }
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return { statut: 'hors-ligne', enAttente }
+    return { statut: 'hors-ligne', enAttente, bloques }
   }
 
   // Connecte mais pas encore rattache a un kiosque : rien ne peut partir.
-  if (!(await monKiosque())) return { statut: 'sans-kiosque', enAttente }
-  if (enCours) return { statut: 'en-cours', enAttente }
-  return { statut: enAttente > 0 ? 'en-attente' : 'a-jour', enAttente }
+  if (!(await monKiosque())) return { statut: 'sans-kiosque', enAttente, bloques }
+  if (enCours) return { statut: 'en-cours', enAttente, bloques }
+  return { statut: enAttente > 0 ? 'en-attente' : 'a-jour', enAttente, bloques }
 }
 
 /* ==========================================================================
@@ -65,25 +72,72 @@ async function pousser() {
   }
 
   let pousse = 0
+  let dernierEchec = null
+
   for (const [table, lot] of parTable) {
     // La derniere version de chaque ligne suffit : inutile de rejouer
     // trois modifications successives du meme enregistrement.
     const parId = new Map()
     for (const e of lot) parId.set(e.row_id, e)
-    const lignes = [...parId.values()].map((e) => e.payload)
+    const derniers = [...parId.values()]
 
-    const { error } = await supabase.from(table).upsert(lignes, { onConflict: 'id' })
+    const { error } = await supabase
+      .from(table)
+      .upsert(derniers.map((e) => e.payload), { onConflict: 'id' })
 
-    if (error) {
-      // On n'enleve rien de l'outbox : la donnee est conservee jusqu'a
-      // confirmation. Une synchro ratee ne doit jamais perdre une saisie.
-      await db.marquerEchec(lot.map((e) => e.seq))
-      throw error
+    if (!error) {
+      await db.retirerOutbox(lot.map((e) => e.seq))
+      pousse += derniers.length
+      continue
     }
-    await db.retirerOutbox(lot.map((e) => e.seq))
-    pousse += lignes.length
+
+    // On n'enleve rien de l'outbox : la donnee est conservee jusqu'a
+    // confirmation. Une synchro ratee ne doit jamais perdre une saisie.
+    await db.marquerEchec(lot.map((e) => e.seq))
+    dernierEchec = error
+
+    // Une coupure reseau fait echouer le lot entier et se resout seule ; on ne
+    // cherche donc un coupable qu'apres plusieurs refus consecutifs.
+    const obstines = derniers.filter((e) => (e.attempts ?? 0) + 1 >= SEUIL_ISOLEMENT)
+    if (obstines.length === 0 || derniers.length === 0) continue
+
+    await isoler(table, obstines)
+    // Les autres tables continuent : c'est tout l'interet de ne plus
+    // interrompre la boucle au premier refus.
   }
-  return { pousse }
+
+  return { pousse, erreur: dernierEchec }
+}
+
+/**
+ * Rejoue une a une les lignes obstinees pour distinguer celle qui bloque.
+ *
+ * Un lot est refuse en bloc par PostgREST : sans ce passage ligne a ligne, une
+ * seule saisie malformee condamnerait toutes les autres du meme envoi.
+ */
+async function isoler(table, entrees) {
+  for (const e of entrees) {
+    const { error } = await supabase.from(table).upsert([e.payload], { onConflict: 'id' })
+    if (!error) {
+      await db.retirerOutbox([e.seq])
+      continue
+    }
+
+    // Une categorie refusee se repare : son identifiant est deja pris par un
+    // autre kiosque, il suffit d'en changer. La bloquer serait bien pire —
+    // les depenses qui la referencent tomberaient a leur tour sur une
+    // violation de cle etrangere.
+    if (table === 'categories') {
+      const nouvelId = await db.renumeroterCategorie(e.row_id)
+      if (nouvelId) {
+        console.warn(`[sync] catégorie ${e.row_id} renumérotée en ${nouvelId}`)
+        continue
+      }
+    }
+
+    console.warn(`[sync] ligne isolée (${table}/${e.row_id}) : ${error.message}`)
+    await db.bloquerOutbox([e.seq], error.message)
+  }
 }
 
 /* ==========================================================================
@@ -186,13 +240,21 @@ export async function declencherSync() {
 
   enCours = true
   try {
-    await pousser()
+    // Le push ne leve plus : un refus sur une table ne doit pas empecher le
+    // pull, qui est en lecture seule et parfaitement independant. Priver
+    // l'appareil des donnees du serveur parce qu'il n'a pas su envoyer les
+    // siennes n'aidait personne.
+    const { erreur: erreurPush } = await pousser()
     await tirer()
     // Les images passent en dernier, et leur echec ne remonte pas : les
     // chiffres sont deja sauvegardes, c'est ce qui compte.
     await televerserRecus(kiosque.id).catch((e) =>
       console.warn('[sync] reçus non téléversés :', e.message),
     )
+    if (erreurPush) {
+      console.warn('[sync] envoi incomplet, nouvelle tentative :', erreurPush.message)
+      return { statut: 'erreur', erreur: erreurPush }
+    }
     return { statut: 'a-jour' }
   } catch (erreur) {
     // Volontairement silencieux cote UI : une synchro qui echoue n'est pas

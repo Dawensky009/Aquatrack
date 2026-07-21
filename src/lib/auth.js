@@ -70,6 +70,14 @@ export async function deconnecter() {
   if (!supabaseConfigure) return
   await supabase.auth.signOut()
 
+  // Une deconnexion VOLONTAIRE remet l'appareil a l'etat non configure :
+  // la prochaine ouverture redemandera qui vous etes. C'est different d'une
+  // session expiree faute de reseau — celle-la ne bloque jamais, sinon
+  // l'application deviendrait inutilisable un soir de coupure.
+  //
+  // Les donnees locales ne sont PAS effacees : se reconnecter les retrouve.
+  await ecrireMeta('appareil_configure', false)
+
   // Le curseur de synchronisation DOIT etre remis a zero. Sans cela, une
   // reconnexion sur un autre compte ne redescendrait que les lignes modifiees
   // depuis le dernier passage, et l'application afficherait un melange des

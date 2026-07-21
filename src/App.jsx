@@ -5,6 +5,7 @@ import BarreLaterale from './components/BarreLaterale.jsx'
 import GestionnaireFeuille from './components/GestionnaireFeuille.jsx'
 import InviteInstallation from './components/InviteInstallation.jsx'
 import EcranVerrou from './components/EcranVerrou.jsx'
+import EcranConnexion from './components/EcranConnexion.jsx'
 import Splash from './pages/Splash.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Analytiques from './pages/Analytiques.jsx'
@@ -30,6 +31,7 @@ export default function App() {
   const evaluerVerrou = useStore((s) => s.evaluerVerrou)
   const majSession = useStore((s) => s.majSession)
   const verrouille = useStore((s) => s.verrouille)
+  const appareilConfigure = useStore((s) => s.appareilConfigure)
   const pret = useStore((s) => s.pret)
   const { pathname } = useLocation()
 
@@ -67,6 +69,10 @@ export default function App() {
   const nu = pathname === '/'
 
   if (!pret) return <Chargement />
+
+  // Première ouverture de l'appareil : on identifie la personne et on rattache
+  // le kiosque. Une seule fois — ensuite l'app s'ouvre sans réseau.
+  if (!appareilConfigure) return <EcranConnexion />
 
   // L'écran de verrouillage remplace l'application, il ne la recouvre pas :
   // rien du contenu ne doit être rendu, même caché derrière un voile.
