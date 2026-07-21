@@ -123,10 +123,20 @@ export const useStore = create((set, get) => ({
     // Si cet appareil servait un AUTRE kiosque, sa base est videe ici. C'est
     // ce qui garantit qu'un compte neuf ouvre un tableau de bord vide, et non
     // les chiffres de la personne qui utilisait le telephone avant lui.
+    // Une base de demonstration est jetee avant tout rattachement : on entre
+    // dans un vrai kiosque avec une comptabilite vide, jamais avec soixante
+    // jours de chiffres inventes.
+    const etaitDemo = await db.lireMeta(db.CLE_DONNEES_DEMO, false)
+    if (etaitDemo) {
+      await db.toutEffacer()
+      await db.ecrireMeta(db.CLE_DONNEES_DEMO, false)
+      await db.ecrireMeta('dernier_pull', null)
+    }
+
     const kiosque = await monKiosque().catch(() => null)
     const changeDeKiosque = kiosque ? await db.rattacherAuKiosque(kiosque.id) : false
 
-    if (changeDeKiosque) {
+    if (changeDeKiosque || etaitDemo) {
       // La base est vide. Celui qui CREE un kiosque a besoin de ses categories
       // de depart ; celui qui en REJOINT un recevra celles du kiosque, et les
       // amorcer ferait doublon.
@@ -233,6 +243,7 @@ export const useStore = create((set, get) => ({
       const dejaAmorce = await db.lireMeta('demo_generee', false)
       if (import.meta.env.DEV && !dejaAmorce && (await db.estVierge())) {
         await genererDemo()
+        await db.ecrireMeta(db.CLE_DONNEES_DEMO, true)
       }
       // Marque pose dans tous les cas : une base volontairement videe ne doit
       // pas se repeupler toute seule au rechargement suivant.
@@ -369,14 +380,21 @@ export const useStore = create((set, get) => ({
     await db.toutEffacer()
     await genererDemo()
     await db.ecrireMeta('demo_generee', true)
+    // Marque la base comme FICTIVE. Tant qu'elle l'est, plus rien ne part vers
+    // le serveur : soixante jours de chiffres inventes n'ont rien a faire dans
+    // la comptabilite d'un vrai kiosque.
+    await db.ecrireMeta(db.CLE_DONNEES_DEMO, true)
     await get().recharger()
+    get().rafraichirSync()
   },
 
   async viderTout() {
     await db.toutEffacer()
     await db.amorcerCategories()
     await db.ecrireMeta('demo_generee', true)
+    await db.ecrireMeta(db.CLE_DONNEES_DEMO, false)
     await get().recharger()
+    get().apresEcriture()
   },
 
   /** Accepte un fichier JSON ou CSV — le format est reconnu a la lecture. */

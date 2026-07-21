@@ -677,6 +677,16 @@ export async function importerJSON(donnees) {
 export const CLE_KIOSQUE_LOCAL = 'kiosque_local'
 
 /**
+ * La base contient-elle des donnees de DEMONSTRATION ?
+ *
+ * Tant que ce drapeau est leve, la synchronisation ne pousse rien. Soixante
+ * jours de chiffres inventes qui arriveraient dans un vrai kiosque seraient
+ * indiscernables des vrais a l'oeil nu — et devraient etre demeles ligne a
+ * ligne. « Repartir de zero » abaisse le drapeau.
+ */
+export const CLE_DONNEES_DEMO = 'donnees_demo'
+
+/**
  * Rattache la base locale a un kiosque, et la VIDE si l'appareil en change.
  *
  * Sans ce garde-fou, l'application se comportait de facon trompeuse : la base

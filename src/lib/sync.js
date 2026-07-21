@@ -41,6 +41,12 @@ export async function etatSync() {
 
   if (!supabaseConfigure) return { statut: 'local', enAttente, bloques }
 
+  // Dit clairement pourquoi rien ne part, plutot que d'afficher « à jour »
+  // alors qu'aucune ligne n'a ete envoyee.
+  if (await db.lireMeta(db.CLE_DONNEES_DEMO, false)) {
+    return { statut: 'demo', enAttente, bloques }
+  }
+
   // Sans session, l'application reste pleinement utilisable — seule la
   // sauvegarde distante est en pause. L'etat le dit clairement plutot que de
   // laisser croire a une synchro qui n'a pas lieu.
@@ -267,6 +273,11 @@ export async function declencherSync() {
   // double. C'est exactement la course que `abandonnerCategoriesParDefaut()`
   // essayait de gagner.
   if (!(await db.lireMeta('appareil_configure', false))) return { statut: 'non-configure' }
+
+  // Rien de fictif ne quitte l'appareil. Une base de demonstration contient
+  // soixante jours de chiffres inventes : arrives sur le serveur, ils
+  // seraient indiscernables des vrais et il faudrait les demeler un par un.
+  if (await db.lireMeta(db.CLE_DONNEES_DEMO, false)) return { statut: 'demo' }
 
   // Sans session, rien ne part. Les ecritures continuent de s'accumuler dans
   // l'outbox et partiront a la connexion : aucune saisie n'est perdue.

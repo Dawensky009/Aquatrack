@@ -21,6 +21,18 @@ const ETATS = {
     texte: 'Kiosque à définir',
     aide: 'Créez ou rejoignez un kiosque dans Réglages',
   },
+  // Volontairement bien visible : tant que la démonstration est chargée, rien
+  // n'est sauvegardé, et croire le contraire coûterait une journée de recette.
+  demo: {
+    icone: CloudOff,
+    texte: 'Démo',
+    aide: 'Données fictives — rien n’est sauvegardé. « Repartir de zéro » dans Réglages.',
+  },
+  'kiosque-different': {
+    icone: CloudOff,
+    texte: 'Hors sauvegarde',
+    aide: 'Ces données appartiennent à un autre kiosque',
+  },
   'hors-ligne': { icone: CloudOff, texte: 'Hors-ligne', aide: 'Vos saisies partiront au retour du réseau' },
   'en-cours': { icone: RefreshCw, texte: 'Synchro…', aide: 'Envoi en cours' },
   'en-attente': { icone: Cloud, texte: null, aide: 'En attente d’envoi' },
