@@ -87,7 +87,11 @@ export async function genererDemo(reference = new Date()) {
   const categories = await amorcerCategories()
 
   const catAppro = categories.find((c) => c.suit_gallons)
-  const catMateriel = categories.find((c) => !c.suit_gallons)
+  // Designee par son nom, et non par « la premiere qui ne suit pas les
+  // gallons » : depuis l'ajout de « Bouchon » elles sont deux, et l'ordre
+  // renvoye par la base suit des identifiants tires au hasard.
+  const catMateriel =
+    categories.find((c) => c.nom === 'Achat matériel') ?? categories.find((c) => !c.suit_gallons)
   const rnd = alea(20260720)
 
   for (const c of CAMIONS) {

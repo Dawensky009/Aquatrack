@@ -649,6 +649,18 @@ export const CATEGORIES_DEFAUT = [
     suit_gallons: false,
     position: 1,
   },
+  {
+    cle: 'bouchon',
+    nom: 'Bouchon',
+    color: '#22D3F5',
+    // Un achat de bouchons se saisit en article × quantite × prix unitaire,
+    // comme le materiel. `suit_gallons` reste faux : ces achats sont un cout,
+    // ils n'alimentent pas le stock d'eau et ne doivent pas entrer dans le
+    // calcul du cout au gallon.
+    unit: 'montant',
+    suit_gallons: false,
+    position: 2,
+  },
 ]
 
 /**
