@@ -141,10 +141,18 @@ export const useStore = create((set, get) => ({
     promesseInit ??= (async () => {
       await db.amorcerCategories()
 
-      // Premier lancement : on peuple avec une demonstration credible plutot
-      // que d'accueillir l'utilisateur par cinq ecrans vides.
+      // Donnees de demonstration : EN DEVELOPPEMENT UNIQUEMENT.
+      //
+      // Elles sont utiles pour travailler sur les ecrans, mais desastreuses en
+      // production : chaque personne ouvrant l'application y verrait 60 jours
+      // de recettes inventees. Un employe croirait a de vrais chiffres, et le
+      // proprietaire devrait nettoyer chaque appareil un par un.
+      //
+      // En production, on demarre donc a vide — les ecrans ont tous un etat
+      // vide qui explique quoi faire — et la demonstration reste disponible a
+      // la demande depuis Reglages.
       const dejaAmorce = await db.lireMeta('demo_generee', false)
-      if (!dejaAmorce && (await db.estVierge())) {
+      if (import.meta.env.DEV && !dejaAmorce && (await db.estVierge())) {
         await genererDemo()
       }
       // Marque pose dans tous les cas : une base volontairement videe ne doit

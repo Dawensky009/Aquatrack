@@ -231,16 +231,25 @@ export default function Reglages() {
               onChange={televerser}
               className="hidden"
             />
+            {/* Ce bouton EFFACE tout et le remplace par 60 jours fictifs. Son
+                ancien libellé (« Réinitialiser la démonstration ») laissait
+                croire à une remise à zéro anodine : il fallait dire ce qu'il
+                détruit, et le mot « fictives » doit apparaître. */}
             <BoutonReglage
               icone={RotateCcw}
               onClick={async () => {
-                if (confirm('Remplacer toutes vos données par la démonstration ?')) {
+                if (
+                  confirm(
+                    'Effacer vos données réelles et les remplacer par 60 jours de chiffres fictifs ?\n\n' +
+                      'À n’utiliser que pour découvrir l’application.',
+                  )
+                ) {
                   await reinitialiserDemo()
-                  setMessage('Données de démonstration régénérées.')
+                  setMessage('Données fictives chargées. Utilisez « Repartir de zéro » pour les enlever.')
                 }
               }}
             >
-              Réinitialiser la démonstration
+              Charger des données fictives (démo)
             </BoutonReglage>
             <BoutonReglage
               icone={Trash2}
