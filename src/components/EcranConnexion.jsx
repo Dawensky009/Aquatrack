@@ -44,6 +44,7 @@ export default function EcranConnexion() {
 
   const [choixKiosque, setChoixKiosque] = useState(null) // null | 'creer' | 'rejoindre'
   const [nomKiosque, setNomKiosque] = useState('')
+  const [monNom, setMonNom] = useState('')
   const [code, setCode] = useState('')
 
   const horsReseau = typeof navigator !== 'undefined' && !navigator.onLine
@@ -185,6 +186,16 @@ export default function EcranConnexion() {
           <div className="flex flex-col gap-3">
             {choixKiosque === null && (
               <>
+                {/* Demande AVANT le choix : il sert dans les deux cas — a vous
+                    saluer sur l'accueil, et a signer vos saisies pour l'autre
+                    personne du kiosque. */}
+                <Champ
+                  label="Votre nom"
+                  type="text"
+                  valeur={monNom}
+                  onChange={setMonNom}
+                  placeholder="Ex : Dawensky"
+                />
                 <p className="sous-ligne mb-1 text-center">
                   Créez votre kiosque, ou rejoignez celui de votre patron avec son code.
                 </p>
@@ -215,8 +226,8 @@ export default function EcranConnexion() {
                   occupe={occupe}
                   onClick={() =>
                     agir(
-                      () => creerKiosque(nomKiosque || 'Mon kiosque'),
-                      terminerConfiguration,
+                      () => creerKiosque(nomKiosque || 'Mon kiosque', monNom.trim()),
+                      () => terminerConfiguration({ monNom: monNom.trim() }),
                     )
                   }
                 >
@@ -238,8 +249,9 @@ export default function EcranConnexion() {
                 <BoutonPlein
                   occupe={occupe}
                   onClick={() =>
-                    agir(() => rejoindreKiosque(code), () =>
-                      terminerConfiguration({ rejoint: true }),
+                    agir(
+                      () => rejoindreKiosque(code, monNom.trim()),
+                      () => terminerConfiguration({ rejoint: true, monNom: monNom.trim() }),
                     )
                   }
                 >

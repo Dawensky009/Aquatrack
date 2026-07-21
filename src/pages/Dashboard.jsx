@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Droplet, Warehouse, TrendingUp, CalendarPlus } from 'lucide-react'
 import EnTete from '../components/EnTete.jsx'
@@ -13,8 +13,32 @@ import { usePeriode } from '../components/FeuillePeriode.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
 import * as M from '../lib/metrics.js'
 import {
-  formatHTG, formatGallons, formatPrix, formatDateLongue, formatDateCourte, cleJour,
+  formatHTG, formatGallons, formatPrix, formatDateLongue, formatDateCourte, cleJour, salutation,
 } from '../lib/format.js'
+
+/**
+ * « Bonjour » / « Bonsoir », reevalue au fil de la journee.
+ *
+ * Au kiosque l'application reste ouverte du matin au soir : calculer la
+ * formule une seule fois au montage laisserait « Bonjour » affiche a 20 h.
+ * On repasse donc a chaque minute — et au retour au premier plan, car un
+ * telephone en veille ne fait pas tourner ses minuteries.
+ */
+function useSalutation() {
+  const [salut, setSalut] = useState(salutation)
+
+  useEffect(() => {
+    const reevaluer = () => setSalut(salutation())
+    const minuterie = setInterval(reevaluer, 60_000)
+    document.addEventListener('visibilitychange', reevaluer)
+    return () => {
+      clearInterval(minuterie)
+      document.removeEventListener('visibilitychange', reevaluer)
+    }
+  }, [])
+
+  return salut
+}
 
 export default function Dashboard() {
   const etat = useEtat()
@@ -23,11 +47,16 @@ export default function Dashboard() {
 
   const c = useMemo(() => calculer(etat, periode), [etat, periode])
   const vide = etat.journees.length === 0 && etat.depenses.length === 0
+  const salut = useSalutation()
 
   return (
     <>
       <EnTete
-        titre={`Bonjour, ${etat.reglages.nom_utilisateur}`}
+        titre={
+          etat.reglages.nom_utilisateur
+            ? `${salut}, ${etat.reglages.nom_utilisateur}`
+            : salut
+        }
         sousTitre={formatDateLongue(new Date())}
         periode={periode.libelle}
         onPeriode={() => ouvrirFeuille('periode')}

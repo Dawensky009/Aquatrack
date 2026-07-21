@@ -106,6 +106,17 @@ export function formatMoisAnnee(date) {
   return `${mois[d.getMonth()]} ${d.getFullYear()}`
 }
 
+/**
+ * « Bonjour » ou « Bonsoir », selon l'heure.
+ *
+ * La bascule est a 18 h, l'usage francais courant. Volontairement deux
+ * formules et pas trois : « Bonne nuit » se dit en partant, pas en ouvrant
+ * une application — et le kiosque ouvre tot.
+ */
+export function salutation(date = new Date()) {
+  return date.getHours() < 18 ? 'Bonjour' : 'Bonsoir'
+}
+
 /** « 14:32 » */
 export function formatHeure(iso) {
   const d = new Date(iso)

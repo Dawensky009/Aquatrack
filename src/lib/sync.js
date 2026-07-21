@@ -225,6 +225,29 @@ async function televerserRecus(idKiosque) {
   }
 }
 
+/**
+ * Efface du stockage les photos des recus supprimes.
+ *
+ * Sans cette passe, supprimer un recu ne liberait jamais la place qu'il occupe
+ * sur Supabase : la ligne part en suppression logique, mais l'image reste, et
+ * le quota se remplit de photos que plus personne ne peut voir.
+ *
+ * Comme le televersement, l'operation est bornee et son echec est sans
+ * consequence : elle sera retentee au cycle suivant.
+ */
+async function purgerRecusSupprimes() {
+  const aPurger = await db.recusAPurger(5)
+  if (!aPurger.length) return
+
+  const chemins = aPurger.map((r) => r.chemin_distant)
+  const { error } = await supabase.storage.from(SEAU_RECUS).remove(chemins)
+  if (error) {
+    console.warn('[sync] purge des reçus impossible :', error.message)
+    return
+  }
+  for (const recu of aPurger) await db.marquerRecuPurge(recu.id)
+}
+
 /* ==========================================================================
    Orchestration
    ========================================================================== */
@@ -268,6 +291,9 @@ export async function declencherSync() {
     // chiffres sont deja sauvegardes, c'est ce qui compte.
     await televerserRecus(kiosque.id).catch((e) =>
       console.warn('[sync] reçus non téléversés :', e.message),
+    )
+    await purgerRecusSupprimes().catch((e) =>
+      console.warn('[sync] reçus non purgés :', e.message),
     )
     if (erreurPush) {
       console.warn('[sync] envoi incomplet, nouvelle tentative :', erreurPush.message)

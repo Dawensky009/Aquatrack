@@ -92,7 +92,10 @@ export const REGLAGES_DEFAUT = {
   capacite_camion: 1200,
   compteur_actif: false,
   compteur_index_initial: null,
-  nom_utilisateur: 'Administrateur',
+  // Vide, et non « Administrateur » : un nom invente ne designe personne.
+  // L'accueil affiche alors « Bonjour » seul, jusqu'a ce qu'on sache qui
+  // est la — nom saisi a l'entree dans le kiosque, ou tire de l'email.
+  nom_utilisateur: '',
 
   // Verrouillage. Le code lui-meme n'est jamais stocke : seule son empreinte
   // PBKDF2 et le sel qui l'accompagne. Ces champs restent LOCAUX — `reglages`
@@ -355,6 +358,31 @@ export async function marquerRecuTeleverse(id, chemin) {
   const ligne = await db.get('recus', id)
   if (!ligne) return null
   return ecrire('recus', { ...ligne, chemin_distant: chemin, updated_at: maintenant() })
+}
+
+/**
+ * Recus supprimes dont la photo occupe encore de la place sur le serveur.
+ *
+ * La suppression d'un recu est LOGIQUE — la ligne reste, marquee `deleted`,
+ * pour que l'effacement se propage aux autres appareils. Mais l'image, elle,
+ * vit dans le stockage et rien ne l'y efface : sans cette purge, chaque recu
+ * supprime continuerait de consommer le quota, pour toujours.
+ */
+export async function recusAPurger(limite = 5) {
+  const db = await base()
+  const metas = await db.getAll('recus')
+  return metas.filter((r) => r.deleted && r.chemin_distant).slice(0, limite)
+}
+
+/** L'image n'est plus sur le serveur : on oublie son chemin. */
+export async function marquerRecuPurge(id) {
+  const db = await base()
+  const ligne = await db.get('recus', id)
+  if (!ligne) return null
+  // Ecriture DIRECTE, sans passer par l'outbox : le chemin distant n'interesse
+  // que cet appareil une fois l'image effacee, et le renvoyer ferait remonter
+  // une ligne supprimee.
+  return db.put('recus', { ...ligne, chemin_distant: null })
 }
 
 /** Poids total des images stockees, pour l'indicateur des Reglages. */

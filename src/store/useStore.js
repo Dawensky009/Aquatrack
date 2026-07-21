@@ -19,7 +19,7 @@ import { declencherSync, etatSync } from '../lib/sync.js'
 import * as theme from '../lib/theme.js'
 import { importerFichier } from '../lib/echange.js'
 import { preparerCode, doitVerrouiller } from '../lib/verrou.js'
-import { sessionCourante } from '../lib/auth.js'
+import { sessionCourante, membresKiosque } from '../lib/auth.js'
 import { supabaseConfigure } from '../lib/supabase.js'
 
 /**
@@ -45,6 +45,35 @@ let promesseInit = null
  * toujours, quel que soit le delai choisi.
  */
 let masqueDepuis = null
+
+/** Noms qui ne designent personne, et qu'on remplace des qu'on sait mieux. */
+const NOMS_IMPERSONNELS = new Set(['', 'Administrateur'])
+
+/**
+ * Retrouve un nom presentable pour la personne connectee.
+ *
+ * Deux sources, dans cet ordre : celui inscrit sur sa fiche de membre — donc
+ * saisi lors de l'entree dans le kiosque, y compris depuis un autre appareil
+ * — puis, a defaut, la partie gauche de son email. Un « Administrateur »
+ * generique ne dit rien a personne.
+ */
+async function nomDepuisCompte() {
+  try {
+    const session = await sessionCourante()
+    if (!session?.user) return ''
+
+    const membres = await membresKiosque()
+    const moi = membres.find((m) => m.user_id === session.user.id)
+    if (moi?.nom?.trim()) return moi.nom.trim()
+
+    const local = (session.user.email ?? '').split('@')[0]
+    if (!local) return ''
+    return local.charAt(0).toUpperCase() + local.slice(1)
+  } catch {
+    // Serveur injoignable : on garde le nom deja en place.
+    return ''
+  }
+}
 
 export const useStore = create((set, get) => ({
   /* --- Donnees ---------------------------------------------------------- */
@@ -90,8 +119,16 @@ export const useStore = create((set, get) => ({
    * recevra celles du kiosque. Sans cela l'employe verrait « Camion d'eau »
    * en double des la premiere synchronisation.
    */
-  async terminerConfiguration({ rejoint = false } = {}) {
+  async terminerConfiguration({ rejoint = false, monNom = '' } = {}) {
     if (rejoint) await db.abandonnerCategoriesParDefaut()
+
+    // Le nom saisi devient celui qui salue sur l'accueil. S'il est vide — cas
+    // de l'etape franchie automatiquement — on va le chercher aupres du
+    // kiosque, ou a defaut on derive l'email : « Administrateur » ne dit rien
+    // a personne.
+    const nom = monNom || (await nomDepuisCompte())
+    if (nom) await get().majReglages({ nom_utilisateur: nom })
+
     await db.ecrireMeta('appareil_configure', true)
     set({ appareilConfigure: true })
     await get().recharger()
@@ -213,6 +250,16 @@ export const useStore = create((set, get) => ({
       set({ pret: true })
       get().evaluerVerrou()
       get().rafraichirSync()
+
+      // « Administrateur » etait un nom par defaut invente, que personne
+      // n'avait choisi. On le remplace des qu'un vrai nom est connu — sans
+      // bloquer l'affichage, et sans jamais ecraser un nom saisi a la main.
+      if (NOMS_IMPERSONNELS.has((get().reglages.nom_utilisateur ?? '').trim())) {
+        nomDepuisCompte().then((nom) => {
+          if (nom) get().majReglages({ nom_utilisateur: nom })
+        })
+      }
+
       declencherSync().then((r) => get().apresSync(r))
     })()
     return promesseInit

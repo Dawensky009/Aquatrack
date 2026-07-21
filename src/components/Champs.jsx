@@ -94,7 +94,7 @@ export function ChampNombre({ label, valeur, onChange, unite, aide, lectureSeule
   )
 }
 
-export function ChampTexte({ label, valeur, onChange, placeholder }) {
+export function ChampTexte({ label, valeur, onChange, placeholder, aide }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-[13px]" style={{ color: 'var(--texte-doux)' }}>
@@ -108,6 +108,7 @@ export function ChampTexte({ label, valeur, onChange, placeholder }) {
         className="w-full rounded-[16px] px-4 py-3 text-sm outline-none"
         style={{ background: 'var(--surface-doux)' }}
       />
+      {aide && <span className="sous-ligne mt-1.5 block">{aide}</span>}
     </label>
   )
 }

@@ -34,6 +34,7 @@ export default function Reglages() {
   const r = etat.reglages
   const nbRecus = etat.recus.length
   const poidsRecus = etat.recus.reduce((t, x) => t + (x.taille || 0), 0)
+  const recusEnLigne = etat.recus.filter((x) => x.chemin_distant).length
 
   async function televerser(e) {
     const f = e.target.files?.[0]
@@ -121,6 +122,8 @@ export default function Reglages() {
               label="Votre nom"
               valeur={r.nom_utilisateur}
               onChange={(v) => majReglages({ nom_utilisateur: v })}
+              placeholder="Ex : Dawensky"
+              aide="Affiché sur l'accueil, et joint à vos saisies pour l'autre personne du kiosque."
             />
           </div>
         </section>
@@ -214,6 +217,16 @@ export default function Reglages() {
             <p className="sous-ligne mb-3">
               {nbRecus} reçu{nbRecus > 1 ? 's' : ''} photographié{nbRecus > 1 ? 's' : ''} ·{' '}
               {formatTaille(poidsRecus)}. Ils sont inclus dans la sauvegarde.
+              {/* Les photos ne partent PAS avec les chiffres : elles suivent
+                  leur propre file, cinq par cycle. Dire où elles en sont evite
+                  de croire tout sauvegarde alors que les images sont encore
+                  sur le telephone. */}
+              {supabaseConfigure &&
+                (recusEnLigne === nbRecus
+                  ? ' Toutes les photos sont sur le serveur.'
+                  : ` ${recusEnLigne} photo${recusEnLigne > 1 ? 's' : ''} envoyée${
+                      recusEnLigne > 1 ? 's' : ''
+                    } sur ${nbRecus} — les autres partiront à la prochaine connexion.`)}
             </p>
           )}
 

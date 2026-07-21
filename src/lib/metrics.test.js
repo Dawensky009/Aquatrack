@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as M from './metrics.js'
-import { formatHTG, formatPrix, formatGallons, cleJour, lireNombre, formatDateLongue, formatDateCourte } from './format.js'
+import { formatHTG, formatPrix, formatGallons, cleJour, lireNombre, formatDateLongue, formatDateCourte, salutation } from './format.js'
 
 /* --------------------------------------------------------------------------
    Fabriques
@@ -848,6 +848,18 @@ describe('format', () => {
   it('formate les prix unitaires avec deux decimales', () => {
     expect(formatPrix(7.5)).toBe('7,50 HTG')
     expect(formatPrix(25)).toBe('25,00 HTG')
+  })
+
+  it('salue selon l’heure, avec bascule à 18 h', () => {
+    const a = (h) => salutation(new Date(2026, 6, 21, h, 0, 0))
+    expect(a(0)).toBe('Bonjour')
+    expect(a(6)).toBe('Bonjour')
+    expect(a(12)).toBe('Bonjour')
+    expect(a(17)).toBe('Bonjour')
+    // 18 h pile bascule déjà : c'est la limite, pas « après la limite ».
+    expect(a(18)).toBe('Bonsoir')
+    expect(a(21)).toBe('Bonsoir')
+    expect(a(23)).toBe('Bonsoir')
   })
 
   it('écrit les mois avec leurs accents', () => {
