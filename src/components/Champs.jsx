@@ -1,4 +1,5 @@
-import { cleJour, formatDateCourte } from '../lib/format.js'
+import { useEffect, useState } from 'react'
+import { cleJour, formatDateCourte, lireNombre } from '../lib/format.js'
 
 /**
  * Champs de saisie.
@@ -60,7 +61,15 @@ export function ChampMontant({
 }
 
 /** Champ compact, pour les valeurs secondaires (MonCash, gallons reçus…). */
-export function ChampNombre({ label, valeur, onChange, unite, aide, lectureSeule = false }) {
+export function ChampNombre({
+  label,
+  valeur,
+  onChange,
+  onSortie,
+  unite,
+  aide,
+  lectureSeule = false,
+}) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-[13px]" style={{ color: 'var(--texte-doux)' }}>
@@ -78,6 +87,10 @@ export function ChampNombre({ label, valeur, onChange, unite, aide, lectureSeule
           inputMode="decimal"
           value={valeur}
           onChange={(e) => onChange?.(e.target.value)}
+          onBlur={onSortie}
+          // « Entrée » vaut validation : au clavier on ne pense pas a sortir
+          // du champ, et le reglage semblerait ne pas avoir ete pris.
+          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           readOnly={lectureSeule}
           placeholder="0"
           className="chiffres w-full min-w-0 bg-transparent text-lg outline-none"
@@ -91,6 +104,54 @@ export function ChampNombre({ label, valeur, onChange, unite, aide, lectureSeule
       </span>
       {aide && <span className="sous-ligne mt-1.5 block">{aide}</span>}
     </label>
+  )
+}
+
+/**
+ * Nombre d'un REGLAGE, enregistre a la sortie du champ.
+ *
+ * A distinguer de `ChampNombre`, qui convient aux formulaires ou le parent
+ * garde la saisie brute. Ici la valeur vit en base sous forme de NOMBRE, et
+ * la piloter directement rendait le champ inutilisable : chaque frappe etait
+ * relue depuis la valeur enregistree, si bien qu'effacer « 25 » enregistrait
+ * « 2 » au passage, puis refusait le champ vide et y remettait « 2 ». On ne
+ * pouvait ni repartir de zero, ni taper une decimale — la virgule
+ * disparaissait avant le chiffre suivant.
+ *
+ * Le brouillon local resout cela : on tape librement, et l'enregistrement
+ * n'a lieu qu'a la sortie du champ, une fois la saisie complete. Une valeur
+ * invalide ou vide revient a la valeur en place plutot que d'ecrire n'importe
+ * quoi dans les reglages.
+ */
+export function ChampReglageNombre({ label, valeur, onValider, unite, aide, min = 0 }) {
+  const [brouillon, setBrouillon] = useState(String(valeur ?? ''))
+  const [edite, setEdite] = useState(false)
+
+  // Tant qu'on n'edite pas, le champ suit la valeur enregistree — un import ou
+  // une synchro doit s'y refleter.
+  useEffect(() => {
+    if (!edite) setBrouillon(String(valeur ?? ''))
+  }, [valeur, edite])
+
+  function valider() {
+    setEdite(false)
+    const n = lireNombre(brouillon)
+    if (n != null && n > min) onValider(n)
+    else setBrouillon(String(valeur ?? ''))
+  }
+
+  return (
+    <ChampNombre
+      label={label}
+      valeur={brouillon}
+      onChange={(v) => {
+        setEdite(true)
+        setBrouillon(v)
+      }}
+      onSortie={valider}
+      unite={unite}
+      aide={aide}
+    />
   )
 }
 

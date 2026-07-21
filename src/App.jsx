@@ -90,7 +90,17 @@ export default function App() {
         className={nu ? '' : 'lg:pl-[260px]'}
         style={nu ? undefined : { paddingBottom: 'calc(var(--hauteur-nav) + 24px)' }}
       >
-        <div className={nu ? '' : 'mx-auto w-full max-w-[480px] px-4 pt-5 md:max-w-[640px] lg:max-w-[1280px] lg:px-8'}>
+        {/* `key` sur le chemin : c'est lui qui rejoue l'animation a chaque
+            changement d'ecran. Sans cela React reutilise le conteneur et la
+            transition ne se declencherait qu'une fois. */}
+        <div
+          key={nu ? 'splash' : pathname}
+          className={
+            nu
+              ? ''
+              : 'mx-auto w-full max-w-[480px] px-4 pt-5 md:max-w-[640px] lg:max-w-[1280px] lg:px-8 animate-[vue-entree_.2s_cubic-bezier(.16,1,.3,1)]'
+          }
+        >
           <Routes>
             <Route path="/" element={<Splash />} />
             <Route path="/tableau-de-bord" element={<Dashboard />} />

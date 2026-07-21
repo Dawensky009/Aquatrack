@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Lock, Fingerprint, ShieldCheck } from 'lucide-react'
 import Pastille from './Pastille.jsx'
+import EnTeteCarte from './EnTeteCarte.jsx'
 import SegmentPills from './SegmentPills.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
 import { DELAIS, biometrieDisponible, enrolerBiometrie, verifierCode } from '../lib/verrou.js'
@@ -88,7 +89,7 @@ export default function SectionSecurite() {
 
   return (
     <section className="carte">
-      <h2 className="titre-carte">Sécurité</h2>
+      <EnTeteCarte icone={ShieldCheck} titre="Sécurité" />
       <p className="sous-ligne mt-0.5 mb-4">
         Un code à 4 chiffres à l'ouverture, pour que le téléphone posé sur le comptoir ne
         laisse pas voir vos chiffres.

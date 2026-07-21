@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Cloud, CloudOff, LogOut, Loader2, MailCheck, Store, UserPlus, Copy, Check, X } from 'lucide-react'
 import Pastille from './Pastille.jsx'
 import { ChampTexte } from './Champs.jsx'
+import EnTeteCarte from './EnTeteCarte.jsx'
 import { useStore } from '../store/useStore.js'
 import {
   connecter,
@@ -55,7 +56,7 @@ export default function SectionCompte() {
   if (!supabaseConfigure) {
     return (
       <section className="carte">
-        <h2 className="titre-carte">Sauvegarde en ligne</h2>
+        <EnTeteCarte icone={Cloud} titre="Sauvegarde en ligne" />
         <p className="sous-ligne mt-0.5 mb-4">
           Non configurée. Vos données vivent uniquement sur cet appareil.
         </p>
@@ -93,7 +94,7 @@ export default function SectionCompte() {
   if (session) {
     return (
       <section className="carte">
-        <h2 className="titre-carte">Sauvegarde en ligne</h2>
+        <EnTeteCarte icone={Cloud} titre="Sauvegarde en ligne" />
         <p className="sous-ligne mt-0.5 mb-4">
           Vos données sont copiées sur le serveur au fil de vos saisies.
         </p>
@@ -177,7 +178,7 @@ export default function SectionCompte() {
   /* --- Configure, deconnecte --------------------------------------------- */
   return (
     <section className="carte">
-      <h2 className="titre-carte">Sauvegarde en ligne</h2>
+      <EnTeteCarte icone={Cloud} titre="Sauvegarde en ligne" />
       <p className="sous-ligne mt-0.5 mb-4">
         Connectez-vous pour sauvegarder vos données hors de ce téléphone.
       </p>

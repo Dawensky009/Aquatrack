@@ -159,6 +159,18 @@ input[inputmode='numeric'],
   }
 }
 
+/* Changement d'ecran.
+   Volontairement bref et discret : on est dans une tache, pas au spectacle.
+   Une remontee de 8px suffit a dire « nouvelle page » ; au-dela, on attend.
+   Pas de `both` en remplissage — l'etat naturel de la vue reste visible si
+   l'animation ne se joue pas. */
+@keyframes vue-entree {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
 /* Code faux : une secousse breve dit « recommencez » sans texte a lire. */
 @keyframes secousse {
   0%,

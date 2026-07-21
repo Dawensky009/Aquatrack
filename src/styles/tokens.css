@@ -59,12 +59,20 @@
   --texte-tres-doux: rgb(34 32 38 / 0.35);
 
   /* --- Carte hero --------------------------------------------------------
-     Sombre dans les DEUX themes : c'est elle qui porte le chiffre dominant.
-     En clair elle tranche par sa noirceur, en sombre par son elevation. */
-  --hero: #222026;
+     BLEU PROFOND en clair, sombre en mode sombre.
+
+     Le bleu dit l'eau, et c'est le sujet. Mais pas n'importe lequel : ce
+     n'est PAS `--accent`. Un accent etale sur la plus grande surface de
+     l'ecran cesse de signaler l'action — le bouton « Ajouter » se fondrait
+     dans le decor. Celui-ci est plus profond, et l'accent garde son role.
+
+     #164E9E est retenu au contraste, pas a l'oeil : blanc plein 8,0:1, et
+     surtout 4,98:1 pour la sous-ligne a 72 % — la nuance a 60 % qui servait
+     sur le noir tombait a 3,97:1 et devenait penible a lire. */
+  --hero: #164E9E;
   --sur-hero: #ffffff;
-  --sur-hero-doux: rgb(255 255 255 / 0.6);
-  --sur-hero-faible: rgb(255 255 255 / 0.15); /* gridlines pointillees */
+  --sur-hero-doux: rgb(255 255 255 / 0.72);
+  --sur-hero-faible: rgb(255 255 255 / 0.2); /* gridlines pointillees */
 
   /* --- Action forte ------------------------------------------------------
      Bouton principal, segment actif, pastille d'alerte. Noir en clair,

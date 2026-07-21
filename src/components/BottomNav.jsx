@@ -39,14 +39,21 @@ export default function BottomNav() {
             <li key={o.to} className="flex-1">
               <NavLink
                 to={o.to}
-                className="flex flex-col items-center gap-1 py-1"
+                className="flex flex-col items-center gap-1 py-1 transition-colors duration-150 active:opacity-60"
                 style={({ isActive }) => ({
                   color: isActive ? 'var(--texte)' : 'var(--texte-doux)',
                 })}
               >
                 {({ isActive }) => (
                   <>
-                    <o.icone size={22} strokeWidth={isActive ? 2.25 : 1.75} />
+                    {/* L'icone se souleve d'un cheveu quand l'onglet devient
+                        actif : le doigt a touche, quelque chose a bouge. */}
+                    <o.icone
+                      size={22}
+                      strokeWidth={isActive ? 2.25 : 1.75}
+                      className="transition-transform duration-200 ease-out"
+                      style={{ transform: isActive ? 'translateY(-1px)' : 'none' }}
+                    />
                     <span
                       className="text-[11px]"
                       style={{ fontWeight: isActive ? 500 : 400 }}

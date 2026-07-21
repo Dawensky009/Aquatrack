@@ -1,19 +1,45 @@
 import { useRef, useState } from 'react'
-import { Download, Upload, RotateCcw, Trash2, Plus, GripVertical } from 'lucide-react'
+import {
+  Download, Upload, RotateCcw, Trash2, Plus, GripVertical,
+  Coins, Gauge, Shapes, Palette, Database,
+} from 'lucide-react'
 import EnTete from '../components/EnTete.jsx'
-import Pastille from '../components/Pastille.jsx'
 import SegmentPills from '../components/SegmentPills.jsx'
 import SectionSecurite from '../components/SectionSecurite.jsx'
 import SectionCompte from '../components/SectionCompte.jsx'
 import ListeReordonnable from '../components/ListeReordonnable.jsx'
-import { ChampNombre, ChampTexte } from '../components/Champs.jsx'
+import EnTeteCarte from '../components/EnTeteCarte.jsx'
+import { ChampReglageNombre, ChampTexte } from '../components/Champs.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
 
 import { supabaseConfigure } from '../lib/supabase.js'
-import { lireNombre, formatPrix } from '../lib/format.js'
+import { formatPrix } from '../lib/format.js'
 import { formatTaille } from '../lib/images.js'
 
 const PALETTE = ['#222026', '#2672DD', '#22D3F5', '#E4E4E6']
+
+/**
+ * Intertitre de groupe.
+ *
+ * Sept cartes identiques a la file, sans hierarchie, obligeaient a tout lire
+ * pour trouver un reglage. Les regrouper — le kiosque, le compte, l'app —
+ * donne trois reperes au lieu de sept.
+ *
+ * En minuscules et sans interlettrage etire : c'est un repere de navigation,
+ * pas une decoration. Sur deux colonnes il occupe toute la largeur, sans quoi
+ * le groupe suivant demarrerait au milieu d'une ligne.
+ */
+function TitreGroupe({ children }) {
+  return (
+    <h2
+      className="mt-3 mb-0.5 px-1 text-[13px] font-medium first:mt-0 lg:col-span-2"
+      style={{ color: 'var(--texte-doux)' }}
+    >
+      {children}
+    </h2>
+  )
+}
+
 
 export default function Reglages() {
   const etat = useEtat()
@@ -68,52 +94,28 @@ export default function Reglages() {
       <EnTete titre="Réglages" avecAjout={false} />
 
       <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
-        {/* ---- Apparence ----------------------------------------------- */}
-        <section className="carte">
-          <h2 className="titre-carte">Apparence</h2>
-          <p className="sous-ligne mt-0.5 mb-4">
-            « Système » suit le réglage de votre téléphone et bascule tout seul le soir.
-          </p>
-          <SegmentPills
-            valeur={themeMode}
-            onChange={changerTheme}
-            options={[
-              { valeur: 'light', libelle: 'Clair' },
-              { valeur: 'dark', libelle: 'Sombre' },
-              { valeur: 'system', libelle: 'Système' },
-            ]}
-          />
-        </section>
+        <TitreGroupe>Votre kiosque</TitreGroupe>
 
         {/* ---- Tarifs -------------------------------------------------- */}
         <section className="carte">
-          <h2 className="titre-carte mb-4">Tarifs</h2>
-          <div className="flex flex-col gap-4">
-            <ChampNombre
+          <EnTeteCarte icone={Coins} titre="Tarifs" />
+          <div className="mt-4 flex flex-col gap-4">
+            <ChampReglageNombre
               label="Prix de vente par gallon"
-              valeur={String(r.prix_vente_gallon)}
-              onChange={(v) => {
-                const n = lireNombre(v)
-                if (n != null && n > 0) majReglages({ prix_vente_gallon: n })
-              }}
+              valeur={r.prix_vente_gallon}
+              onValider={(n) => majReglages({ prix_vente_gallon: n })}
               unite="HTG"
-              aide="Sert à déduire les gallons vendus depuis le montant encaissé."
+              // Precision essentielle : sans elle, on croirait que changer ce
+              // prix corrige aussi le passe. Elle est dite ici, sous le champ
+              // concerne, plutot que dans un encart noir qui criait plus fort
+              // que les champs eux-memes.
+              aide="Sert à déduire les gallons vendus depuis le montant encaissé. Un changement ne vaut que pour les journées à venir : celles déjà clôturées gardent leur prix."
             />
 
-            {/* Avertissement essentiel : sans lui, l'utilisateur croirait que
-                changer ce prix corrige aussi le passe. */}
-            <Pastille bloc>
-              Un changement ne s'applique qu'aux journées à venir. Les journées déjà
-              clôturées conservent le prix en vigueur ce jour-là.
-            </Pastille>
-
-            <ChampNombre
+            <ChampReglageNombre
               label="Capacité d'un camion"
-              valeur={String(r.capacite_camion)}
-              onChange={(v) => {
-                const n = lireNombre(v)
-                if (n != null && n > 0) majReglages({ capacite_camion: n })
-              }}
+              valeur={r.capacite_camion}
+              onValider={(n) => majReglages({ capacite_camion: n })}
               unite="gallons"
               aide="Pré-remplit le formulaire de réapprovisionnement."
             />
@@ -130,8 +132,8 @@ export default function Reglages() {
 
         {/* ---- Compteur ------------------------------------------------ */}
         <section className="carte">
-          <h2 className="titre-carte">Compteur d'eau</h2>
-          <p className="sous-ligne mt-0.5 mb-4">
+          <EnTeteCarte icone={Gauge} titre="Compteur d'eau" />
+          <p className="sous-ligne mt-2 mb-4">
             Tant qu'il est désactivé, les gallons sont déduits du montant encaissé
             ({formatPrix(r.prix_vente_gallon)} par gallon). Cette quantité n'est donc pas
             une mesure : elle ne peut révéler ni fuite ni manquant.
@@ -147,11 +149,13 @@ export default function Reglages() {
 
           {r.compteur_actif && (
             <div className="mt-4">
-              <ChampNombre
+              <ChampReglageNombre
                 label="Index de départ du compteur"
-                valeur={String(r.compteur_index_initial ?? '')}
-                onChange={(v) => majReglages({ compteur_index_initial: lireNombre(v) })}
+                valeur={r.compteur_index_initial}
+                onValider={(n) => majReglages({ compteur_index_initial: n })}
                 unite="gallons"
+                // Un compteur neuf part de zéro : c'est une valeur légitime.
+                min={-1}
                 aide="Le relevé actuel. Les gallons du jour seront calculés par différence."
               />
               <p className="sous-ligne mt-3">
@@ -162,14 +166,10 @@ export default function Reglages() {
           )}
         </section>
 
-        <SectionCompte />
-
-        <SectionSecurite />
-
         {/* ---- Categories de depenses ---------------------------------- */}
         <section className="carte">
-          <h2 className="titre-carte">Catégories de dépenses</h2>
-          <p className="sous-ligne mt-0.5 mb-3">
+          <EnTeteCarte icone={Shapes} titre="Catégories de dépenses" />
+          <p className="sous-ligne mt-2 mb-3">
             Glissez la poignée pour changer l'ordre — ou sélectionnez-la et utilisez les
             flèches du clavier.
           </p>
@@ -204,10 +204,35 @@ export default function Reglages() {
           </button>
         </section>
 
+        <TitreGroupe>Compte et sécurité</TitreGroupe>
+
+        <SectionCompte />
+
+        <SectionSecurite />
+
+        <TitreGroupe>Application</TitreGroupe>
+
+        {/* ---- Apparence ----------------------------------------------- */}
+        <section className="carte">
+          <EnTeteCarte icone={Palette} titre="Apparence" />
+          <p className="sous-ligne mt-2 mb-4">
+            « Système » suit le réglage de votre téléphone et bascule tout seul le soir.
+          </p>
+          <SegmentPills
+            valeur={themeMode}
+            onChange={changerTheme}
+            options={[
+              { valeur: 'light', libelle: 'Clair' },
+              { valeur: 'dark', libelle: 'Sombre' },
+              { valeur: 'system', libelle: 'Système' },
+            ]}
+          />
+        </section>
+
         {/* ---- Donnees ------------------------------------------------- */}
         <section className="carte">
-          <h2 className="titre-carte">Vos données</h2>
-          <p className="sous-ligne mt-0.5 mb-4">
+          <EnTeteCarte icone={Database} titre="Vos données" />
+          <p className="sous-ligne mt-2 mb-4">
             {supabaseConfigure
               ? 'Sauvegardées sur cet appareil et synchronisées vers Supabase.'
               : "Sauvegardées uniquement sur cet appareil. Exportez régulièrement : si vous perdez ce téléphone, elles sont perdues."}

@@ -87,9 +87,16 @@ export default function BarreLaterale() {
               <li key={o.to}>
                 <NavLink
                   to={o.to}
-                  className="flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-colors"
+                  // Le fond actif reste en ligne, mais PAS le fond inactif :
+                  // un style en ligne bat toujours une classe, et « transparent »
+                  // aurait annule le survol.
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-[background-color,color] duration-200 ease-out ${
+                      isActive ? '' : 'hover:bg-[var(--surface-doux)]'
+                    }`
+                  }
                   style={({ isActive }) => ({
-                    background: isActive ? 'var(--action)' : 'transparent',
+                    background: isActive ? 'var(--action)' : undefined,
                     color: isActive ? 'var(--sur-action)' : 'var(--texte-doux)',
                     fontWeight: isActive ? 500 : 400,
                   })}
