@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Lock, Fingerprint, ShieldCheck } from 'lucide-react'
 import Pastille from './Pastille.jsx'
-import EnTeteCarte from './EnTeteCarte.jsx'
+import { GroupeReglage, Interrupteur } from './LigneReglage.jsx'
 import SegmentPills from './SegmentPills.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
 import { DELAIS, biometrieDisponible, enrolerBiometrie, verifierCode } from '../lib/verrou.js'
@@ -88,9 +88,12 @@ export default function SectionSecurite() {
   }
 
   return (
-    <section className="carte">
-      <EnTeteCarte icone={ShieldCheck} titre="Sécurité" />
-      <p className="sous-ligne mt-0.5 mb-4">
+    <GroupeReglage
+      titre="Sécurité"
+      aide="Ce verrou protège contre quelqu'un qui prend le téléphone en main. Il ne chiffre pas vos données : gardez aussi le téléphone protégé par le verrouillage du système."
+    >
+      <div className="p-4">
+      <p className="sous-ligne mb-4">
         Un code à 4 chiffres à l'ouverture, pour que le téléphone posé sur le comptoir ne
         laisse pas voir vos chiffres.
       </p>
@@ -184,12 +187,8 @@ export default function SectionSecurite() {
           <Pastille bloc>{message}</Pastille>
         </div>
       )}
-
-      <p className="sous-ligne mt-4">
-        Ce verrou protège contre quelqu'un qui prend le téléphone en main. Il ne chiffre pas
-        vos données : gardez aussi le téléphone protégé par le verrouillage du système.
-      </p>
-    </section>
+      </div>
+    </GroupeReglage>
   )
 }
 
@@ -230,22 +229,5 @@ function SaisieCode({ titre, saisie, onChange, onValider, onAnnuler }) {
         </button>
       </div>
     </div>
-  )
-}
-
-function Interrupteur({ actif, onChange }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={actif}
-      onClick={() => onChange(!actif)}
-      className="relative h-7 w-12 shrink-0 rounded-full transition-colors"
-      style={{ background: actif ? 'var(--accent)' : 'var(--gris-data)' }}
-    >
-      <span
-        className="absolute top-1 size-5 rounded-full transition-all"
-        style={{ background: '#FFFFFF', left: actif ? 26 : 4 }}
-      />
-    </button>
   )
 }

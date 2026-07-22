@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Cloud, CloudOff, LogOut, Loader2, MailCheck, Store, UserPlus, Copy, Check, X } from 'lucide-react'
 import Pastille from './Pastille.jsx'
 import { ChampTexte } from './Champs.jsx'
-import EnTeteCarte from './EnTeteCarte.jsx'
+import { GroupeReglage } from './LigneReglage.jsx'
 import { useStore } from '../store/useStore.js'
 import {
   connecter,
@@ -55,19 +55,20 @@ export default function SectionCompte() {
   /* --- Supabase non configure ------------------------------------------- */
   if (!supabaseConfigure) {
     return (
-      <section className="carte">
-        <EnTeteCarte icone={Cloud} titre="Sauvegarde en ligne" />
-        <p className="sous-ligne mt-0.5 mb-4">
-          Non configurée. Vos données vivent uniquement sur cet appareil.
-        </p>
-        <Pastille bloc>
-          <CloudOff size={14} strokeWidth={2} className="shrink-0" />
-          <span>
-            Exportez régulièrement depuis « Vos données » : si vous perdez ce téléphone,
-            tout est perdu.
-          </span>
-        </Pastille>
-      </section>
+      <GroupeReglage titre="Sauvegarde en ligne">
+        <div className="p-4">
+          <p className="sous-ligne mb-4">
+            Non configurée. Vos données vivent uniquement sur cet appareil.
+          </p>
+          <Pastille bloc>
+            <CloudOff size={14} strokeWidth={2} className="shrink-0" />
+            <span>
+              Exportez régulièrement depuis « Vos données » : si vous perdez ce téléphone,
+              tout est perdu.
+            </span>
+          </Pastille>
+        </div>
+      </GroupeReglage>
     )
   }
 
@@ -93,9 +94,9 @@ export default function SectionCompte() {
   /* --- Connecte ---------------------------------------------------------- */
   if (session) {
     return (
-      <section className="carte">
-        <EnTeteCarte icone={Cloud} titre="Sauvegarde en ligne" />
-        <p className="sous-ligne mt-0.5 mb-4">
+      <GroupeReglage titre="Sauvegarde en ligne">
+        <div className="p-4">
+        <p className="sous-ligne mb-4">
           Vos données sont copiées sur le serveur au fil de vos saisies.
         </p>
 
@@ -171,15 +172,16 @@ export default function SectionCompte() {
           Se déconnecter n’efface rien : l’application continue de fonctionner en local,
           seule la sauvegarde s’arrête.
         </p>
-      </section>
+        </div>
+      </GroupeReglage>
     )
   }
 
   /* --- Configure, deconnecte --------------------------------------------- */
   return (
-    <section className="carte">
-      <EnTeteCarte icone={Cloud} titre="Sauvegarde en ligne" />
-      <p className="sous-ligne mt-0.5 mb-4">
+    <GroupeReglage titre="Sauvegarde en ligne">
+      <div className="p-4">
+      <p className="sous-ligne mb-4">
         Connectez-vous pour sauvegarder vos données hors de ce téléphone.
       </p>
 
@@ -250,7 +252,8 @@ export default function SectionCompte() {
           </Pastille>
         </div>
       )}
-    </section>
+      </div>
+    </GroupeReglage>
   )
 }
 
