@@ -97,6 +97,13 @@ export const REGLAGES_DEFAUT = {
   // est la — nom saisi a l'entree dans le kiosque, ou tire de l'email.
   nom_utilisateur: '',
 
+  // Rappel de cloture. Local a l'appareil, comme le verrou : chacun choisit
+  // d'etre rappele ou non, a l'heure qui l'arrange, sans l'imposer a l'autre
+  // personne du kiosque. `rappel_actif` reste faux par defaut — on ne notifie
+  // personne sans son accord.
+  rappel_actif: false,
+  rappel_heure: '20:00',
+
   // Verrouillage. Le code lui-meme n'est jamais stocke : seule son empreinte
   // PBKDF2 et le sel qui l'accompagne. Ces champs restent LOCAUX — `reglages`
   // ne fait pas partie des tables synchronisees.

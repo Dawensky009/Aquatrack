@@ -13,6 +13,7 @@ import Journal from './pages/Journal.jsx'
 import Reglages from './pages/Reglages.jsx'
 import { useStore } from './store/useStore.js'
 import { demarrerSync } from './lib/sync.js'
+import { demarrerRappel } from './lib/notification.js'
 import { suivreSysteme } from './lib/theme.js'
 import { surChangementSession } from './lib/auth.js'
 
@@ -33,6 +34,10 @@ export default function App() {
   const verrouille = useStore((s) => s.verrouille)
   const appareilConfigure = useStore((s) => s.appareilConfigure)
   const pret = useStore((s) => s.pret)
+  // Ces deux valeurs re-arment la minuterie de rappel quand elles changent :
+  // activer le rappel ou en decaler l'heure doit prendre effet aussitot.
+  const rappelActif = useStore((s) => s.reglages.rappel_actif)
+  const rappelHeure = useStore((s) => s.reglages.rappel_heure)
   const { pathname } = useLocation()
 
   useEffect(() => {
@@ -46,6 +51,14 @@ export default function App() {
     // redemarrage.
     return demarrerSync((_etat, resultat) => apresSync(resultat))
   }, [pret, apresSync])
+
+  // Rappel de cloture : la minuterie de notification vit tant que l'app est
+  // ouverte. `useStore.getState` donne l'etat FRAIS a l'instant du declenche-
+  // ment, pas celui capture au montage.
+  useEffect(() => {
+    if (!pret) return
+    return demarrerRappel(() => useStore.getState())
+  }, [pret, rappelActif, rappelHeure])
 
   // En mode « système », l'app suit les changements de préférence de l'OS en
   // direct — sans avoir à être rechargée.

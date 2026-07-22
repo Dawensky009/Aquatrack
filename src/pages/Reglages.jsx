@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import {
   Download, Upload, RotateCcw, Trash2, Plus, GripVertical,
-  Coins, Gauge, Shapes, Palette, Database,
+  Coins, Gauge, Shapes, Palette, Database, BellRing,
 } from 'lucide-react'
 import EnTete from '../components/EnTete.jsx'
 import SegmentPills from '../components/SegmentPills.jsx'
@@ -9,12 +9,14 @@ import SectionSecurite from '../components/SectionSecurite.jsx'
 import SectionCompte from '../components/SectionCompte.jsx'
 import ListeReordonnable from '../components/ListeReordonnable.jsx'
 import EnTeteCarte from '../components/EnTeteCarte.jsx'
+import Pastille from '../components/Pastille.jsx'
 import { ChampReglageNombre, ChampTexte } from '../components/Champs.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
 
 import { supabaseConfigure } from '../lib/supabase.js'
 import { formatPrix } from '../lib/format.js'
 import { formatTaille } from '../lib/images.js'
+import { notificationsDisponibles, demanderPermission } from '../lib/notification.js'
 
 const PALETTE = ['#222026', '#2672DD', '#22D3F5', '#E4E4E6']
 
@@ -212,6 +214,9 @@ export default function Reglages() {
 
         <TitreGroupe>Application</TitreGroupe>
 
+        {/* ---- Rappel de cloture --------------------------------------- */}
+        <CarteRappel reglages={r} majReglages={majReglages} />
+
         {/* ---- Apparence ----------------------------------------------- */}
         <section className="carte">
           <EnTeteCarte icone={Palette} titre="Apparence" />
@@ -375,6 +380,80 @@ function LigneCategorie({
         </button>
       )}
     </div>
+  )
+}
+
+/**
+ * Rappel de cloture.
+ *
+ * L'interrupteur active la banniere in-app, qui ne demande rien. La notifica-
+ * tion systeme est un CRAN de plus, dit comme tel : on ne demande la permission
+ * qu'a l'activation, et si elle est refusee on ne ment pas — la banniere reste,
+ * la notification non.
+ */
+function CarteRappel({ reglages, majReglages }) {
+  const [permission, setPermission] = useState(
+    notificationsDisponibles() ? Notification.permission : 'indisponible',
+  )
+
+  async function basculer(actif) {
+    if (actif && notificationsDisponibles() && Notification.permission === 'default') {
+      await demanderPermission()
+      setPermission(Notification.permission)
+    }
+    majReglages({ rappel_actif: actif })
+  }
+
+  return (
+    <section className="carte">
+      <div className="flex items-center justify-between gap-3">
+        <EnTeteCarte icone={BellRing} titre="Rappel de clôture" />
+        <Interrupteur actif={reglages.rappel_actif} onChange={basculer} />
+      </div>
+
+      <p className="sous-ligne mt-2">
+        Un rappel le soir si la journée n'est pas encore clôturée — pour ne plus
+        oublier d'enregistrer la recette.
+      </p>
+
+      {reglages.rappel_actif && (
+        <div className="mt-4 flex flex-col gap-3">
+          <label className="flex items-center justify-between gap-3">
+            <span className="text-sm">Heure du rappel</span>
+            <input
+              type="time"
+              value={reglages.rappel_heure}
+              onChange={(e) => majReglages({ rappel_heure: e.target.value })}
+              className="chiffres rounded-[12px] px-3 py-2 text-sm outline-none"
+              style={{ background: 'var(--surface-doux)' }}
+            />
+          </label>
+
+          {/* La verite sur la portee, sans jargon : le rappel dans l'app est
+              certain, la notification depend de la permission et d'une app
+              restee ouverte. Ne pas le dire donnerait un faux sentiment de
+              filet de securite. */}
+          {permission === 'granted' ? (
+            <p className="sous-ligne">
+              Une notification s'affichera à cette heure si l'application est restée
+              ouverte. Sinon, le rappel apparaîtra à la prochaine ouverture.
+            </p>
+          ) : permission === 'denied' ? (
+            <Pastille bloc>
+              Les notifications sont bloquées pour ce site. Le rappel s'affichera quand
+              même dans l'application, à son ouverture. Pour les notifications,
+              autorisez-les dans les réglages de votre navigateur.
+            </Pastille>
+          ) : (
+            <p className="sous-ligne">
+              Le rappel s'affichera à l'ouverture de l'application.
+              {notificationsDisponibles() &&
+                ' Autorisez les notifications pour en être averti même sans l’ouvrir.'}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 

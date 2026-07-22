@@ -6,6 +6,7 @@ import CarteHero from '../components/CarteHero.jsx'
 import CarteStat from '../components/CarteStat.jsx'
 import Pastille from '../components/Pastille.jsx'
 import BadgeSync from '../components/BadgeSync.jsx'
+import BanniereRappel from '../components/BanniereRappel.jsx'
 import EtatVide from '../components/EtatVide.jsx'
 import GrapheRevenus from '../components/GrapheRevenus.jsx'
 import LigneJournal, { versLigne } from '../components/LigneJournal.jsx'
@@ -62,6 +63,8 @@ export default function Dashboard() {
         onPeriode={() => ouvrirFeuille('periode')}
         apres={<BadgeSync />}
       />
+
+      <BanniereRappel />
 
       {vide ? (
         <div className="carte">

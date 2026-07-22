@@ -19,6 +19,7 @@ import { declencherSync, etatSync } from '../lib/sync.js'
 import * as theme from '../lib/theme.js'
 import { importerFichier } from '../lib/echange.js'
 import { preparerCode, doitVerrouiller } from '../lib/verrou.js'
+import { cleJour } from '../lib/format.js'
 import { sessionCourante, membresKiosque, monKiosque } from '../lib/auth.js'
 import { supabaseConfigure } from '../lib/supabase.js'
 
@@ -170,6 +171,18 @@ export const useStore = create((set, get) => ({
   periode: 'mois', // 'mois' | 'precedent' | '30j' | 'tout'
   choisirPeriode: (periode) => set({ periode }),
 
+  /* --- Rappel de cloture --------------------------------------------------
+     Jour ou l'utilisateur a ecarte la banniere, pour qu'elle se taise jusqu'au
+     lendemain. Lu au demarrage depuis `meta`, non synchronise. */
+  rappelRejetLe: null,
+
+  /** Ecarte la banniere de rappel jusqu'au lendemain. */
+  async rejeterRappel() {
+    const cle = cleJour(new Date())
+    await db.ecrireMeta('rappel_dernier_rejet', cle)
+    set({ rappelRejetLe: cle })
+  },
+
   /* --- Verrouillage -------------------------------------------------------
      `verrouille` demarre a `null` : ni verrouille ni ouvert, tant qu'on n'a
      pas lu les reglages. Demarrer a `false` laisserait entrevoir les chiffres
@@ -268,7 +281,8 @@ export const useStore = create((set, get) => ({
         await db.ecrireMeta('appareil_configure', true)
       }
 
-      set({ session, appareilConfigure: configure })
+      const rappelRejetLe = await db.lireMeta('rappel_dernier_rejet', null)
+      set({ session, appareilConfigure: configure, rappelRejetLe })
 
       await get().recharger()
       set({ pret: true })
