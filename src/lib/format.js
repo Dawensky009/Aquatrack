@@ -124,6 +124,20 @@ export function formatHeure(iso) {
 }
 
 /**
+ * Prepare un texte pour la recherche : minuscules, sans accents.
+ *
+ * Chercher « bouchon » doit trouver « Bouchon », et « materiel » doit trouver
+ * « matériel » — sur un clavier de telephone les accents sont fastidieux, et
+ * personne ne pense a les mettre pour filtrer.
+ */
+export function normaliser(texte) {
+  return String(texte ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+}
+
+/**
  * Lit un nombre saisi par l'utilisateur.
  * Accepte la virgule decimale francaise et les espaces de milliers.
  * Renvoie null si la saisie ne represente pas un nombre — l'appelant

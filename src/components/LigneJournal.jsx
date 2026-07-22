@@ -1,5 +1,5 @@
 import { Droplet, Truck, Package, Paperclip } from 'lucide-react'
-import { formatHTG, formatGallons, formatPrix, formatDateCourte } from '../lib/format.js'
+import { formatHTG, formatGallons, formatPrix, formatDateCourte, normaliser } from '../lib/format.js'
 import { couleurDonnees } from '../lib/theme.js'
 import { useSombre } from '../store/useStore.js'
 
@@ -78,15 +78,20 @@ export default function LigneJournal({ ligne, onClick }) {
  */
 export function versLigne(source, { categories = [], recus = [] } = {}) {
   if (source.date !== undefined) {
+    const libelle = `Recette du ${formatDateCourte(source.date)}`
+    const detail = `${formatGallons(source.gallons)} · ${formatPrix(source.prix_reference)}/gallon${
+      source.gallons_source === 'compteur' ? ' · compteur' : ''
+    }`
     return {
       cle: `j-${source.id}`,
       type: 'revenu',
       tri: `${source.date}T23:59:59`,
-      libelle: `Recette du ${formatDateCourte(source.date)}`,
-      detail: `${formatGallons(source.gallons)} · ${formatPrix(source.prix_reference)}/gallon${
-        source.gallons_source === 'compteur' ? ' · compteur' : ''
-      }`,
+      libelle,
+      detail,
       montant: source.montant,
+      // Corpus de recherche : libelle, note, et le montant en chiffres bruts
+      // pour qu'une recherche « 1500 » retombe sur la recette correspondante.
+      recherche: normaliser(`${libelle} recette ${source.note ?? ''} ${source.montant}`),
       source,
     }
   }
@@ -117,6 +122,11 @@ export function versLigne(source, { categories = [], recus = [] } = {}) {
     couleur: cat?.color ?? '#222026',
     suitGallons: !!cat?.suit_gallons,
     nbRecus: recus.filter((r) => r.depense_id === source.id).length,
+    // Article, categorie, note et montant : « bouchon » trouve l'achat de
+    // bouchons, « camion » les reapprovisionnements, « 2645 » le montant exact.
+    recherche: normaliser(
+      `${libelle} ${cat?.nom ?? ''} ${source.designation ?? ''} ${source.note ?? ''} ${source.total}`,
+    ),
     source,
   }
 }
