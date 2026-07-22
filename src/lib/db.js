@@ -179,6 +179,20 @@ export async function journeeDuJour(date) {
   return j && !j.deleted ? j : null
 }
 
+/**
+ * La ligne pour cette date, SUPPRIMEE OU NON.
+ *
+ * A distinguer de `journeeDuJour`, qui ne renvoie que les journees vivantes.
+ * Ici on veut la ligne brute, car l'index `date` est UNIQUE : une journee
+ * supprimee occupe toujours sa date. Reclôturer cette date doit reutiliser
+ * cette meme ligne — la ressusciter — et non en creer une seconde, qui
+ * violerait l'unicite et ferait echouer l'enregistrement en silence.
+ */
+async function ligneParDate(date) {
+  const db = await base()
+  return (await db.getFromIndex('journees', 'date', date)) ?? null
+}
+
 /* ==========================================================================
    Ecriture — donnee + outbox dans la meme transaction
    ========================================================================== */
@@ -217,7 +231,11 @@ export async function enregistrerJournee({
   prix_reference,
   note = '',
 }) {
-  const existante = await journeeDuJour(date)
+  // On cherche la ligne existante SUPPRIMEE OU NON : si la date a deja ete
+  // clôturee puis supprimee, on reutilise son identifiant pour la ressusciter
+  // (deleted repasse a false) au lieu d'inserer une ligne concurrente qui
+  // heurterait l'index unique sur la date — et ferait echouer l'enregistrement.
+  const existante = await ligneParDate(date)
   const ligne = {
     id: existante?.id ?? crypto.randomUUID(),
     date,
