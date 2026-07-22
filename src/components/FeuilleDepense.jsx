@@ -153,6 +153,19 @@ export default function FeuilleDepense({ depense }) {
     total > 0 &&
     (estAppro ? gallons != null && gallons > 0 : quantite != null && quantite > 0)
 
+  // Comme la cloture : un bouton grise doit dire ce qui manque, jamais rester
+  // muet. On pointe le premier champ vide dans l'ordre de saisie.
+  let raisonInvalide = null
+  if (categorieId == null) {
+    raisonInvalide = 'Choisissez une catégorie.'
+  } else if (estAppro && (gallons == null || gallons <= 0)) {
+    raisonInvalide = 'Indiquez le nombre de gallons reçus.'
+  } else if (!estAppro && (quantite == null || quantite <= 0)) {
+    raisonInvalide = 'Indiquez la quantité.'
+  } else if (total == null || total <= 0) {
+    raisonInvalide = 'Indiquez le prix.'
+  }
+
   async function enregistrer() {
     setEnCours(true)
     try {
@@ -185,9 +198,16 @@ export default function FeuilleDepense({ depense }) {
       titre={depense ? 'Modifier la dépense' : 'Ajouter une dépense'}
       onFermer={fermerFeuille}
       pied={
-        <BoutonPrincipal disabled={!valide || enCours} onClick={enregistrer}>
-          {enCours ? 'Enregistrement…' : 'Enregistrer'}
-        </BoutonPrincipal>
+        <div className="flex flex-col gap-2">
+          {!valide && raisonInvalide && (
+            <p className="text-center text-[13px]" style={{ color: 'var(--texte-doux)' }}>
+              {raisonInvalide}
+            </p>
+          )}
+          <BoutonPrincipal disabled={!valide || enCours} onClick={enregistrer}>
+            {enCours ? 'Enregistrement…' : 'Enregistrer'}
+          </BoutonPrincipal>
+        </div>
       }
     >
       <div className="flex flex-col gap-4 pb-2">

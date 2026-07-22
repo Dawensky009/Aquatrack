@@ -95,6 +95,21 @@ export default function FeuilleCloture({ dateInitiale }) {
   const valide =
     montant != null && montant >= 0 && gallons != null && gallons >= 0 && !erreurReleve && moncash <= montant
 
+  // Pourquoi le bouton est-il bloque ? Un bouton grise et muet donne
+  // l'impression d'une application cassee : l'utilisateur tape, rien ne se
+  // passe, aucune raison. On la nomme. L'ordre suit celui de la saisie, pour
+  // pointer le PREMIER manque plutot que le dernier.
+  let raisonInvalide = null
+  if (montant == null) {
+    raisonInvalide = 'Saisissez le montant encaissé aujourd’hui.'
+  } else if (compteurActif && erreurReleve) {
+    raisonInvalide = null // le relevé a déjà sa propre alerte, plus précise
+  } else if (gallons == null) {
+    raisonInvalide = 'Saisissez le relevé du compteur.'
+  } else if (moncash > montant) {
+    raisonInvalide = 'La part MonCash dépasse le montant encaissé.'
+  }
+
   async function enregistrer() {
     await cloturerJour({
       date,
@@ -114,9 +129,16 @@ export default function FeuilleCloture({ dateInitiale }) {
       titre={existante ? 'Modifier la journée' : 'Clôturer la journée'}
       onFermer={fermerFeuille}
       pied={
-        <BoutonPrincipal disabled={!valide} onClick={enregistrer}>
-          {existante ? 'Enregistrer les modifications' : 'Clôturer la journée'}
-        </BoutonPrincipal>
+        <div className="flex flex-col gap-2">
+          {!valide && raisonInvalide && (
+            <p className="text-center text-[13px]" style={{ color: 'var(--texte-doux)' }}>
+              {raisonInvalide}
+            </p>
+          )}
+          <BoutonPrincipal disabled={!valide} onClick={enregistrer}>
+            {existante ? 'Enregistrer les modifications' : 'Clôturer la journée'}
+          </BoutonPrincipal>
+        </div>
       }
     >
       <div className="flex flex-col gap-4 pb-2">
