@@ -67,12 +67,7 @@ export default function Dashboard() {
         sousTitre={formatDateLongue(new Date())}
         periode={periode.libelle}
         onPeriode={() => ouvrirFeuille('periode')}
-        apres={
-          <>
-            <BoutonMasque />
-            <BadgeSync />
-          </>
-        }
+        apres={<BadgeSync />}
       />
 
       <BanniereRappel />
@@ -103,6 +98,7 @@ export default function Dashboard() {
             <CarteHero
               variante="noire"
               titre="Bénéfice Net"
+              coin={<BoutonMasque />}
               chiffre={m(formatHTG(c.benefice))}
               delta={caches ? null : c.deltaBenefice}
               sousLigne={

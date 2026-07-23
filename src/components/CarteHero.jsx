@@ -22,6 +22,8 @@ export default function CarteHero({
   sousChiffres,
   action,
   onAction,
+  // Controle libre pose dans le coin haut-droit (ex. l'oeil « masquer »).
+  coin,
   children,
   className = '',
 }) {
@@ -34,15 +36,18 @@ export default function CarteHero({
     <section className={`carte ${fond} ${className}`}>
       <header className="flex items-start justify-between gap-3">
         <h2 className="titre-carte">{titre}</h2>
-        {onAction && (
-          <button
-            onClick={onAction}
-            aria-label="Options"
-            className="-m-2 p-2 opacity-60 transition-opacity hover:opacity-100"
-          >
-            <Icone size={18} strokeWidth={1.75} />
-          </button>
-        )}
+        <div className="-m-2 flex items-center">
+          {coin}
+          {onAction && (
+            <button
+              onClick={onAction}
+              aria-label="Options"
+              className="p-2 opacity-60 transition-opacity hover:opacity-100"
+            >
+              <Icone size={18} strokeWidth={1.75} />
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="mt-2 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
