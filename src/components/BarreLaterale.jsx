@@ -14,7 +14,7 @@ import {
 import { useStore, useEtat } from '../store/useStore.js'
 import BadgeSync from './BadgeSync.jsx'
 import * as M from '../lib/metrics.js'
-import { formatHTG } from '../lib/format.js'
+import { formatHTG, MONTANT_MASQUE } from '../lib/format.js'
 
 /**
  * Navigation laterale — desktop (>= 1024px).
@@ -120,7 +120,7 @@ export default function BarreLaterale() {
             Ce mois
           </p>
           <p className="chiffres mt-1.5 text-[22px] leading-none font-medium">
-            {montantsCaches ? '••••' : formatHTG(resume.net)}
+            {montantsCaches ? MONTANT_MASQUE : formatHTG(resume.net)}
           </p>
           <p className="sous-ligne mt-1">bénéfice net</p>
 

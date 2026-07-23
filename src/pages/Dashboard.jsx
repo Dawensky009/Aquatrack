@@ -16,6 +16,7 @@ import { useStore, useEtat } from '../store/useStore.js'
 import * as M from '../lib/metrics.js'
 import {
   formatHTG, formatGallons, formatPrix, formatDateLongue, formatDateCourte, cleJour, salutation,
+  MONTANT_MASQUE,
 } from '../lib/format.js'
 
 /**
@@ -54,7 +55,7 @@ export default function Dashboard() {
   // Discretion : quand c'est actif, tout montant devient des points. Les
   // quantites (gallons) et les dates restent, elles ne trahissent pas la caisse.
   const caches = useStore((s) => s.montantsCaches)
-  const m = (texte) => (caches ? '••••' : texte)
+  const m = (texte) => (caches ? MONTANT_MASQUE : texte)
 
   return (
     <>

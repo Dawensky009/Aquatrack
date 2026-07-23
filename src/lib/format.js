@@ -7,6 +7,15 @@
  * ce qui est le comportement voulu.
  */
 
+/**
+ * Symbole affiche a la place d'un montant masque.
+ *
+ * Longueur FIXE, volontairement : reprendre le nombre reel de chiffres
+ * revelerait l'ordre de grandeur (« ***** » pour 12 000, « ******* » pour
+ * 1 200 000), ce qui viderait le masque de son sens.
+ */
+export const MONTANT_MASQUE = '*******'
+
 const nombreFr = new Intl.NumberFormat('fr-FR', {
   maximumFractionDigits: 0,
 })

@@ -1,5 +1,7 @@
 import { Droplet, Truck, Package, Paperclip } from 'lucide-react'
-import { formatHTG, formatGallons, formatPrix, formatDateCourte, normaliser } from '../lib/format.js'
+import {
+  formatHTG, formatGallons, formatPrix, formatDateCourte, normaliser, MONTANT_MASQUE,
+} from '../lib/format.js'
 import { couleurDonnees } from '../lib/theme.js'
 import { useSombre } from '../store/useStore.js'
 
@@ -54,7 +56,7 @@ export default function LigneJournal({ ligne, onClick, masque = false }) {
 
       <span className="shrink-0 text-right">
         <span className="chiffres block text-sm font-medium">
-          {masque ? '••••' : formatHTG(revenu ? ligne.montant : -ligne.montant, { signe: true })}
+          {masque ? MONTANT_MASQUE : formatHTG(revenu ? ligne.montant : -ligne.montant, { signe: true })}
         </span>
         <span
           className="mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium"
