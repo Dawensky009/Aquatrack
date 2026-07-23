@@ -376,6 +376,22 @@ export const useStore = create((set, get) => ({
    * saisi sur l'autre telephone — ou les categories du kiosque qu'on vient de
    * rejoindre — n'apparaitrait qu'au redemarrage suivant de l'application.
    */
+  /**
+   * Synchronisation a la demande, depuis le badge.
+   *
+   * Utile quand on n'a pas la patience d'attendre le cycle de 60 s : au retour
+   * du reseau, ou pour recuperer tout de suite la saisie d'un autre appareil.
+   * Un etat « en-cours » optimiste donne un retour immediat au doigt ; la
+   * synchro reelle corrige ensuite le badge — y compris si elle echoue (le
+   * badge repasse alors a « Hors sauvegarde », un « j'ai essaye » honnete).
+   */
+  async synchroniserMaintenant() {
+    if (get().sync.statut === 'en-cours') return
+    set({ sync: { ...get().sync, statut: 'en-cours' } })
+    const resultat = await declencherSync()
+    await get().apresSync(resultat)
+  },
+
   async apresSync(resultat) {
     if (resultat?.modifie) await get().recharger()
 

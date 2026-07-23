@@ -1,4 +1,4 @@
-import { Cloud, CloudOff, RefreshCw, Check, HardDrive } from 'lucide-react'
+import { Cloud, CloudOff, RefreshCw, Check, HardDrive, RotateCw } from 'lucide-react'
 import { useStore } from '../store/useStore.js'
 
 /**
@@ -41,22 +41,55 @@ const ETATS = {
 
 export default function BadgeSync() {
   const sync = useStore((s) => s.sync)
+  const synchroniser = useStore((s) => s.synchroniserMaintenant)
+
   const etat = ETATS[sync.statut] ?? ETATS.local
   const Icone = etat.icone
   const texte = etat.texte ?? `${sync.enAttente} en attente`
+  const enCours = sync.statut === 'en-cours'
+
+  // Forcer la synchro n'a de sens qu'avec un serveur (« local » = aucun) et
+  // hors demonstration. Dans ces deux cas, le badge reste un simple indicateur.
+  const interactif = sync.statut !== 'local' && sync.statut !== 'demo'
+
+  const contenu = (
+    <>
+      <Icone size={12} strokeWidth={2} className={enCours ? 'animate-spin' : ''} />
+      {texte}
+      {/* Petit indice « toucher pour synchroniser » — masque pendant la synchro,
+          ou l'icone d'etat tourne deja. */}
+      {interactif && !enCours && (
+        <RotateCw size={11} strokeWidth={2} style={{ opacity: 0.5 }} className="ml-0.5" />
+      )}
+    </>
+  )
+
+  const classeBase =
+    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]'
+
+  if (!interactif) {
+    return (
+      <span
+        title={etat.aide}
+        className={classeBase}
+        style={{ background: 'var(--surface)', color: 'var(--texte-doux)' }}
+      >
+        {contenu}
+      </span>
+    )
+  }
 
   return (
-    <span
-      title={etat.aide}
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]"
+    <button
+      type="button"
+      onClick={synchroniser}
+      disabled={enCours}
+      aria-label="Synchroniser maintenant"
+      title={`${etat.aide} · Toucher pour synchroniser`}
+      className={`${classeBase} transition-[background-color,transform] active:scale-95 hover:brightness-95 disabled:active:scale-100`}
       style={{ background: 'var(--surface)', color: 'var(--texte-doux)' }}
     >
-      <Icone
-        size={12}
-        strokeWidth={2}
-        className={sync.statut === 'en-cours' ? 'animate-spin' : ''}
-      />
-      {texte}
-    </span>
+      {contenu}
+    </button>
   )
 }
