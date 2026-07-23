@@ -3,12 +3,7 @@ import { Database, FileSpreadsheet, ChevronRight, Loader2 } from 'lucide-react'
 import Feuille from './Feuille.jsx'
 import Pastille from './Pastille.jsx'
 import { useStore } from '../store/useStore.js'
-import {
-  exporterSauvegarde,
-  exporterRecettesCSV,
-  exporterDepensesCSV,
-} from '../lib/echange.js'
-import { formatHTG } from '../lib/format.js'
+import { exporterSauvegarde, exporterExcel } from '../lib/echange.js'
 
 /**
  * Choix du format d'export.
@@ -52,30 +47,24 @@ export default function FeuilleExport() {
 
         <Choix
           icone={FileSpreadsheet}
-          titre="Recettes (Excel / CSV)"
-          texte="Une ligne par journée clôturée. S'ouvre d'un double-clic dans Excel."
-          occupe={occupe === 'recettes'}
+          titre="Feuille de calcul Excel"
+          texte="Un classeur .xlsx avec deux feuilles — Recettes et Dépenses. Dates et montants correctement formatés, prêts à imprimer ou à donner au comptable."
+          occupe={occupe === 'excel'}
           onClick={() =>
-            lancer('recettes', exporterRecettesCSV, (r) => `${r.lignes} journées exportées.`)
-          }
-        />
-
-        <Choix
-          icone={FileSpreadsheet}
-          titre="Dépenses (Excel / CSV)"
-          texte="Une ligne par dépense, avec la catégorie et le nombre de reçus attachés."
-          occupe={occupe === 'depenses'}
-          onClick={() =>
-            lancer('depenses', exporterDepensesCSV, (r) => `${r.lignes} dépenses exportées.`)
+            lancer(
+              'excel',
+              exporterExcel,
+              (r) => `Classeur téléchargé : ${r.recettes} journées, ${r.depenses} dépenses.`,
+            )
           }
         />
 
         {fait && <Pastille bloc>{fait}</Pastille>}
 
         <p className="sous-ligne mt-2">
-          Les fichiers Excel ne contiennent pas les photos de reçus — un tableur ne sait
-          pas transporter d'images. Pour une sauvegarde qui restaure tout, choisissez le
-          format JSON.
+          Le fichier Excel ne contient pas les photos de reçus — un tableur ne sait pas
+          transporter d'images. Pour une sauvegarde qui restaure tout, choisissez le format
+          JSON.
         </p>
       </div>
     </Feuille>

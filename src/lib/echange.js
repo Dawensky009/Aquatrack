@@ -21,6 +21,7 @@ import {
   COLONNES_RECETTES,
   COLONNES_DEPENSES,
 } from './csv.js'
+import { construireXLSX } from './xlsx.js'
 import { cleJour } from './format.js'
 
 export class ErreurImport extends Error {}
@@ -84,6 +85,68 @@ export async function exporterDepensesCSV() {
     'text/csv;charset=utf-8',
   )
   return { lignes: lignes.length }
+}
+
+/* --------------------------------------------------------------------------
+   Export Excel (.xlsx) — un vrai classeur, deux feuilles.
+
+   A distinguer du CSV : ici chaque colonne porte un TYPE (date, montant,
+   texte), si bien qu'Excel affiche des dates comme des dates et des montants
+   comme des nombres, quelle que soit sa langue. Le CSV, lui, restait un texte
+   dont le rendu dependait de la configuration du tableur.
+   -------------------------------------------------------------------------- */
+
+const COLS_RECETTES_XLSX = [
+  { titre: 'Date', type: 'date', largeur: 12, valeur: (j) => j.date },
+  { titre: 'Montant encaissé (HTG)', type: 'entier', largeur: 20, valeur: (j) => j.montant },
+  { titre: 'Dont MonCash (HTG)', type: 'entier', largeur: 18, valeur: (j) => j.moncash },
+  { titre: 'Gallons vendus', type: 'decimal', largeur: 15, valeur: (j) => j.gallons },
+  { titre: 'Prix de vente (HTG/gallon)', type: 'decimal', largeur: 22, valeur: (j) => j.prix_reference },
+  {
+    titre: 'Origine des gallons',
+    largeur: 18,
+    valeur: (j) => (j.gallons_source === 'compteur' ? 'Compteur' : 'Estimé'),
+  },
+  { titre: 'Relevé compteur', type: 'entier', largeur: 15, valeur: (j) => j.releve_compteur },
+  { titre: 'Note', largeur: 30, valeur: (j) => j.note },
+  { titre: 'Identifiant', largeur: 38, valeur: (j) => j.id },
+]
+
+const COLS_DEPENSES_XLSX = [
+  { titre: 'Date', type: 'date', largeur: 12, valeur: (d) => d.date },
+  { titre: 'Catégorie', largeur: 18, valeur: (d) => d.categorie },
+  { titre: 'Type', largeur: 18, valeur: (d) => (d.suitGallons ? 'Approvisionnement' : 'Achat') },
+  { titre: 'Article', largeur: 24, valeur: (d) => d.designation },
+  { titre: 'Quantité', type: 'entier', largeur: 12, valeur: (d) => d.quantity },
+  { titre: 'Prix unitaire (HTG)', type: 'decimal', largeur: 18, valeur: (d) => d.unit_price },
+  { titre: 'Montant (HTG)', type: 'entier', largeur: 16, valeur: (d) => d.total },
+  { titre: 'Paiement', largeur: 12, valeur: (d) => (d.payment_method === 'moncash' ? 'MonCash' : 'Cash') },
+  { titre: 'Reçus', type: 'entier', largeur: 10, valeur: (d) => d.nbRecus || null },
+  { titre: 'Note', largeur: 30, valeur: (d) => d.note },
+  { titre: 'Identifiant', largeur: 38, valeur: (d) => d.id },
+]
+
+export async function exporterExcel() {
+  const { journees, depenses, categories, recus } = await db.chargerTout()
+
+  const recettes = [...journees].sort((a, b) => a.date.localeCompare(b.date))
+  const lignesDepenses = [...depenses]
+    .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
+    .map((d) => ({
+      ...d,
+      date: cleJour(new Date(d.occurred_at)),
+      categorie: categories.find((c) => c.id === d.category_id)?.nom ?? '',
+      suitGallons: !!categories.find((c) => c.id === d.category_id)?.suit_gallons,
+      nbRecus: recus.filter((r) => r.depense_id === d.id).length,
+    }))
+
+  const blob = construireXLSX([
+    { nom: 'Recettes', colonnes: COLS_RECETTES_XLSX, lignes: recettes },
+    { nom: 'Dépenses', colonnes: COLS_DEPENSES_XLSX, lignes: lignesDepenses },
+  ])
+
+  telecharger(blob, `aqua-track-${horodatage()}.xlsx`, blob.type)
+  return { recettes: recettes.length, depenses: lignesDepenses.length }
 }
 
 /* ==========================================================================

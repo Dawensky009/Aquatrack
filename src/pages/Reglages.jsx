@@ -210,7 +210,7 @@ export default function Reglages() {
           <LigneReglage
             icone={Download}
             titre="Exporter"
-            sousTitre="JSON, Excel ou CSV"
+            sousTitre="Sauvegarde JSON ou classeur Excel"
             onClick={() => ouvrirFeuille('export')}
             chevron
           />
