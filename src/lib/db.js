@@ -623,12 +623,31 @@ export async function marquerEchec(seqs) {
   await tx.done
 }
 
+/** Identifiants des lignes en attente d'envoi — protegees a la fusion. */
+export async function idsOutboxEnAttente() {
+  const db = await base()
+  const toutes = await db.getAll('outbox')
+  return new Set(toutes.map((e) => e.row_id))
+}
+
 /**
- * Fusion d'une ligne venue du serveur, en last-write-wins sur `updated_at`.
- * N'ecrit PAS dans l'outbox : cette donnee vient deja du serveur, la
- * renvoyer creerait une boucle de synchronisation.
+ * Fusion d'une ligne venue du serveur.
+ *
+ * Le serveur fait FOI : sa version est adoptee telle quelle. On ne compare
+ * plus les `updated_at` — ce serait comparer deux horloges d'appareils, la
+ * source meme du probleme. Depuis que Postgres horodate lui-meme (voir
+ * migration-horodatage.sql), il n'y a qu'une horloge, et le curseur de
+ * synchronisation suffit a dire ce qui a change.
+ *
+ * L'UNIQUE exception : une ligne modifiee localement et pas encore envoyee
+ * (`idsEnAttente`). On la protege, sinon un pull ecraserait une saisie que le
+ * serveur n'a pas encore recue. Elle partira au prochain push, et le serveur
+ * l'horodatera alors la plus recente.
+ *
+ * N'ecrit PAS dans l'outbox : cette donnee vient deja du serveur, la renvoyer
+ * creerait une boucle de synchronisation.
  */
-export async function fusionnerDepuisServeur(table, lignes) {
+export async function fusionnerDepuisServeur(table, lignes, idsEnAttente = new Set()) {
   const db = await base()
   const tx = db.transaction(table, 'readwrite')
   for (const brute of lignes) {
@@ -641,10 +660,9 @@ export async function fusionnerDepuisServeur(table, lignes) {
     // utilisent le meme kiosque.
     const { kiosque_id: _ignore, ...distante } = brute
 
-    const locale = await tx.store.get(distante.id)
-    if (!locale || distante.updated_at > locale.updated_at) {
-      await tx.store.put(distante)
-    }
+    // Une saisie locale non encore envoyee prime : on ne l'ecrase pas.
+    if (idsEnAttente.has(distante.id)) continue
+    await tx.store.put(distante)
   }
   await tx.done
 }

@@ -155,6 +155,12 @@ async function tirer() {
   let plusRecent = depuis
   let recues = 0
 
+  // Les lignes en attente d'envoi sont protegees : un pull ne doit jamais
+  // ecraser une saisie locale que le serveur n'a pas encore recue. Lu une
+  // seule fois, apres le push — donc ce qui reste ici a vraiment echoue a
+  // partir, ou n'est pas encore parti.
+  const idsEnAttente = await db.idsOutboxEnAttente()
+
   for (const table of db.TABLES) {
     const { data, error } = await supabase
       .from(table)
@@ -165,7 +171,7 @@ async function tirer() {
     if (error) throw error
     if (!data?.length) continue
 
-    await db.fusionnerDepuisServeur(table, data)
+    await db.fusionnerDepuisServeur(table, data, idsEnAttente)
     recues += data.length
     const dernier = data[data.length - 1].updated_at
     if (dernier > plusRecent) plusRecent = dernier
