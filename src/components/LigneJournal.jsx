@@ -15,7 +15,7 @@ import { useSombre } from '../store/useStore.js'
  * Les depenses restent en noir sur gris : introduire du rouge casserait
  * l'identite visuelle pour une information que le signe « − » porte deja.
  */
-export default function LigneJournal({ ligne, onClick }) {
+export default function LigneJournal({ ligne, onClick, masque = false }) {
   const revenu = ligne.type === 'revenu'
   const sombre = useSombre()
   const couleur = couleurDonnees(ligne.couleur, sombre)
@@ -54,7 +54,7 @@ export default function LigneJournal({ ligne, onClick }) {
 
       <span className="shrink-0 text-right">
         <span className="chiffres block text-sm font-medium">
-          {formatHTG(revenu ? ligne.montant : -ligne.montant, { signe: true })}
+          {masque ? '••••' : formatHTG(revenu ? ligne.montant : -ligne.montant, { signe: true })}
         </span>
         <span
           className="mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium"

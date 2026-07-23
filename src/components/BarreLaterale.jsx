@@ -46,6 +46,7 @@ export default function BarreLaterale() {
   const themeMode = useStore((s) => s.themeMode)
   const changerTheme = useStore((s) => s.changerTheme)
   const applicationMasquee = useStore((s) => s.applicationMasquee)
+  const montantsCaches = useStore((s) => s.montantsCaches)
 
   const resume = useMemo(() => {
     const mois = M.moisCourant()
@@ -119,7 +120,7 @@ export default function BarreLaterale() {
             Ce mois
           </p>
           <p className="chiffres mt-1.5 text-[22px] leading-none font-medium">
-            {formatHTG(resume.net)}
+            {montantsCaches ? '••••' : formatHTG(resume.net)}
           </p>
           <p className="sous-ligne mt-1">bénéfice net</p>
 

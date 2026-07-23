@@ -47,6 +47,23 @@ let promesseInit = null
  */
 let masqueDepuis = null
 
+/**
+ * Masquage des montants — preference d'appareil, dans localStorage.
+ *
+ * Ni dans les reglages synchronises ni dans IndexedDB : c'est un choix de
+ * DISCRETION propre a ce telephone (le cacher sur le mien ne doit pas le cacher
+ * sur celui de l'employe), et il doit s'appliquer avant meme le premier rendu,
+ * sans attendre une lecture asynchrone de la base.
+ */
+const CLE_MASQUE = 'aqua-montants-caches'
+const lireMasque = () => {
+  try {
+    return localStorage.getItem(CLE_MASQUE) === '1'
+  } catch {
+    return false
+  }
+}
+
 /** Noms qui ne designent personne, et qu'on remplace des qu'on sait mieux. */
 const NOMS_IMPERSONNELS = new Set(['', 'Administrateur'])
 
@@ -104,6 +121,20 @@ export const useStore = create((set, get) => ({
    * serait perdue.
    */
   appareilConfigure: true, // valeur sure : on ne bloque pas avant d'avoir lu
+
+  /* --- Discretion : masquer les montants --------------------------------
+     Pour ne pas exposer ses chiffres a qui jette un oeil sur le comptoir. */
+  montantsCaches: lireMasque(),
+
+  basculerMontants() {
+    const valeur = !get().montantsCaches
+    try {
+      localStorage.setItem(CLE_MASQUE, valeur ? '1' : '0')
+    } catch {
+      /* stockage indisponible : le choix ne survivra pas au rechargement, tant pis */
+    }
+    set({ montantsCaches: valeur })
+  },
 
   majSession(session) {
     set({ session })

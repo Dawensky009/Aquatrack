@@ -6,6 +6,7 @@ import CarteHero from '../components/CarteHero.jsx'
 import CarteStat from '../components/CarteStat.jsx'
 import Pastille from '../components/Pastille.jsx'
 import BadgeSync from '../components/BadgeSync.jsx'
+import BoutonMasque from '../components/BoutonMasque.jsx'
 import BanniereRappel from '../components/BanniereRappel.jsx'
 import EtatVide from '../components/EtatVide.jsx'
 import GrapheRevenus from '../components/GrapheRevenus.jsx'
@@ -50,6 +51,11 @@ export default function Dashboard() {
   const vide = etat.journees.length === 0 && etat.depenses.length === 0
   const salut = useSalutation()
 
+  // Discretion : quand c'est actif, tout montant devient des points. Les
+  // quantites (gallons) et les dates restent, elles ne trahissent pas la caisse.
+  const caches = useStore((s) => s.montantsCaches)
+  const m = (texte) => (caches ? '••••' : texte)
+
   return (
     <>
       <EnTete
@@ -61,7 +67,12 @@ export default function Dashboard() {
         sousTitre={formatDateLongue(new Date())}
         periode={periode.libelle}
         onPeriode={() => ouvrirFeuille('periode')}
-        apres={<BadgeSync />}
+        apres={
+          <>
+            <BoutonMasque />
+            <BadgeSync />
+          </>
+        }
       />
 
       <BanniereRappel />
@@ -92,16 +103,16 @@ export default function Dashboard() {
             <CarteHero
               variante="noire"
               titre="Bénéfice Net"
-              chiffre={formatHTG(c.benefice)}
-              delta={c.deltaBenefice}
+              chiffre={m(formatHTG(c.benefice))}
+              delta={caches ? null : c.deltaBenefice}
               sousLigne={
                 c.beneficePrecedent != null
-                  ? `${formatHTG(c.beneficePrecedent)} à la même date le mois dernier`
+                  ? `${m(formatHTG(c.beneficePrecedent))} à la même date le mois dernier`
                   : periode.libelle
               }
               sousChiffres={[
-                { libelle: 'Revenus', valeur: formatHTG(c.revenus) },
-                { libelle: 'Dépenses', valeur: formatHTG(c.depenses) },
+                { libelle: 'Revenus', valeur: m(formatHTG(c.revenus)) },
+                { libelle: 'Dépenses', valeur: m(formatHTG(c.depenses)) },
               ]}
             >
               <GrapheRevenus donnees={c.serie} cle="cumul" surSombre hauteur={140} />
@@ -123,6 +134,7 @@ export default function Dashboard() {
                   <li key={l.cle}>
                     <LigneJournal
                       ligne={l}
+                      masque={caches}
                       onClick={() =>
                         l.type === 'revenu'
                           ? ouvrirFeuille('cloture', { date: l.source.date })
