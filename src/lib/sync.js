@@ -116,6 +116,20 @@ async function pousser() {
 }
 
 /**
+ * Identifiant d'une categorie VIVANTE de meme nom sur le serveur, ou null.
+ * Le select est borne au kiosque par les regles de securite (RLS).
+ */
+async function categorieDeMemeNom(payload) {
+  const nom = (payload?.nom ?? '').trim().toLowerCase()
+  if (!nom) return null
+  const { data } = await supabase.from('categories').select('id, nom').eq('deleted', false)
+  const trouvee = (data ?? []).find(
+    (c) => c.id !== payload.id && (c.nom ?? '').trim().toLowerCase() === nom,
+  )
+  return trouvee?.id ?? null
+}
+
+/**
  * Rejoue une a une les lignes obstinees pour distinguer celle qui bloque.
  *
  * Un lot est refuse en bloc par PostgREST : sans ce passage ligne a ligne, une
@@ -129,11 +143,21 @@ async function isoler(table, entrees) {
       continue
     }
 
-    // Une categorie refusee se repare : son identifiant est deja pris par un
-    // autre kiosque, il suffit d'en changer. La bloquer serait bien pire —
-    // les depenses qui la referencent tomberaient a leur tour sur une
-    // violation de cle etrangere.
+    // Une categorie refusee se repare, de deux facons selon la cause.
     if (table === 'categories') {
+      // Cas courant : une categorie de MEME NOM existe deja dans le kiosque
+      // (l'index unique l'a refusee). On adopte l'existante plutot que
+      // d'insister — sinon on renumeroterait a l'infini, le nom restant en
+      // conflit. Les depenses du doublon sont rattachees a la survivante.
+      const existante = await categorieDeMemeNom(e.payload)
+      if (existante && existante !== e.row_id) {
+        await db.adopterCategorie(e.row_id, existante)
+        console.warn(`[sync] catégorie « ${e.payload?.nom} » fusionnée avec l'existante`)
+        continue
+      }
+
+      // Cas rare : collision d'identifiant seul (deux kiosques, meme uuid). Un
+      // nouvel identifiant suffit.
       const nouvelId = await db.renumeroterCategorie(e.row_id)
       if (nouvelId) {
         console.warn(`[sync] catégorie ${e.row_id} renumérotée en ${nouvelId}`)

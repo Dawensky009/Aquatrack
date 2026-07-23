@@ -2,6 +2,9 @@ import 'fake-indexeddb/auto'
 import { describe, it, expect } from 'vitest'
 import {
   enregistrerJournee,
+  enregistrerCategorie,
+  enregistrerDepense,
+  adopterCategorie,
   fusionnerDepuisServeur,
   idsOutboxEnAttente,
   chargerTout,
@@ -83,5 +86,39 @@ describe('fusionnerDepuisServeur', () => {
     expect(ligne.montant).toBe(2000)
     // La notion serveur ne doit pas rester en local.
     expect('kiosque_id' in ligne).toBe(false)
+  })
+})
+
+describe('adopterCategorie', () => {
+  it('rattache les dépenses du doublon à la catégorie gardée, puis l’efface', async () => {
+    const gardee = await enregistrerCategorie({
+      nom: 'Bouchon',
+      color: '#22D3F5',
+      unit: 'montant',
+      suit_gallons: false,
+      position: 0,
+    })
+    const doublon = await enregistrerCategorie({
+      nom: 'Bouchon', // même nom : le futur index l'aurait refusé côté serveur
+      color: '#22D3F5',
+      unit: 'montant',
+      suit_gallons: false,
+      position: 1,
+    })
+    await enregistrerDepense({
+      occurred_at: '2026-07-10T09:00:00.000Z',
+      category_id: doublon.id,
+      total: 500,
+    })
+
+    await adopterCategorie(doublon.id, gardee.id)
+
+    const { categories, depenses } = await chargerTout()
+    // Le doublon a disparu, la gardée reste.
+    expect(categories.some((c) => c.id === doublon.id)).toBe(false)
+    expect(categories.some((c) => c.id === gardee.id)).toBe(true)
+    // La dépense pointe désormais vers la catégorie gardée.
+    expect(depenses.every((d) => d.category_id !== doublon.id)).toBe(true)
+    expect(depenses.some((d) => d.category_id === gardee.id)).toBe(true)
   })
 })

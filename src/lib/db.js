@@ -519,6 +519,33 @@ export async function compterBloques() {
  * On ne renumerote qu'apres un refus AVERE : si la ligne appartenait vraiment
  * a ce kiosque, le serveur l'aurait acceptee. Le risque d'orpheline est nul.
  */
+/**
+ * Adopte une categorie deja presente sur le serveur, a la place d'un doublon
+ * local refuse.
+ *
+ * Depuis l'index unique `(kiosque_id, nom)`, le serveur refuse une seconde
+ * categorie vivante de meme nom. Quand cela arrive, inutile d'insister : il en
+ * existe deja une bonne cote serveur. On y rattache les depenses du doublon,
+ * puis on efface le doublon local — il n'a jamais atteint le serveur, une
+ * suppression physique suffit.
+ */
+export async function adopterCategorie(ancienId, nouvelId) {
+  const db = await base()
+  if (ancienId === nouvelId) return
+
+  const depenses = await db.getAll('depenses')
+  for (const d of depenses.filter((x) => x.category_id === ancienId)) {
+    await ecrire('depenses', { ...d, category_id: nouvelId, updated_at: maintenant() })
+  }
+
+  const enAttente = await db.getAll('outbox')
+  const seqs = enAttente
+    .filter((e) => e.row_id === ancienId || e.payload?.category_id === ancienId)
+    .map((e) => e.seq)
+  if (seqs.length) await retirerOutbox(seqs)
+  await db.delete('categories', ancienId)
+}
+
 export async function renumeroterCategorie(ancienId) {
   const db = await base()
   const categorie = await db.get('categories', ancienId)
