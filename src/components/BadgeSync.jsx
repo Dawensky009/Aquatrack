@@ -9,17 +9,22 @@ import { useStore } from '../store/useStore.js'
  * compris quand il n'y a pas de serveur du tout (« Local »), ce qui est un
  * etat parfaitement valide et non une erreur.
  */
+// `alerte` : les etats ou vos saisies ne sont PAS sauvegardees en ligne. Le
+// badge y prend une teinte rouge douce, pour se remarquer d'un coup d'oeil —
+// on veut voir vite qu'on est deconnecte, pas le deviner dans un gris discret.
 const ETATS = {
   local: { icone: HardDrive, texte: 'Local', aide: 'Données enregistrées sur cet appareil' },
   'non-connecte': {
     icone: CloudOff,
-    texte: 'Hors sauvegarde',
-    aide: 'Connectez-vous dans Réglages pour sauvegarder en ligne',
+    texte: 'Déconnecté',
+    aide: 'Compte déconnecté — reconnectez-vous dans Réglages pour sauvegarder en ligne',
+    alerte: true,
   },
   'sans-kiosque': {
     icone: CloudOff,
     texte: 'Kiosque à définir',
     aide: 'Créez ou rejoignez un kiosque dans Réglages',
+    alerte: true,
   },
   // Volontairement bien visible : tant que la démonstration est chargée, rien
   // n'est sauvegardé, et croire le contraire coûterait une journée de recette.
@@ -27,11 +32,13 @@ const ETATS = {
     icone: CloudOff,
     texte: 'Démo',
     aide: 'Données fictives — rien n’est sauvegardé. « Repartir de zéro » dans Réglages.',
+    alerte: true,
   },
   'kiosque-different': {
     icone: CloudOff,
     texte: 'Hors sauvegarde',
     aide: 'Ces données appartiennent à un autre kiosque',
+    alerte: true,
   },
   'hors-ligne': { icone: CloudOff, texte: 'Hors-ligne', aide: 'Vos saisies partiront au retour du réseau' },
   'en-cours': { icone: RefreshCw, texte: 'Synchro…', aide: 'Envoi en cours' },
@@ -67,13 +74,14 @@ export default function BadgeSync() {
   const classeBase =
     'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]'
 
+  // Teinte : rouge doux pour un etat « pas sauvegarde », neutre sinon.
+  const style = etat.alerte
+    ? { background: 'var(--rouge-clair)', color: 'var(--rouge)' }
+    : { background: 'var(--surface)', color: 'var(--texte-doux)' }
+
   if (!interactif) {
     return (
-      <span
-        title={etat.aide}
-        className={classeBase}
-        style={{ background: 'var(--surface)', color: 'var(--texte-doux)' }}
-      >
+      <span title={etat.aide} className={classeBase} style={style}>
         {contenu}
       </span>
     )
@@ -87,7 +95,7 @@ export default function BadgeSync() {
       aria-label="Synchroniser maintenant"
       title={`${etat.aide} · Toucher pour synchroniser`}
       className={`${classeBase} transition-[background-color,transform] active:scale-95 hover:brightness-95 disabled:active:scale-100`}
-      style={{ background: 'var(--surface)', color: 'var(--texte-doux)' }}
+      style={style}
     >
       {contenu}
     </button>

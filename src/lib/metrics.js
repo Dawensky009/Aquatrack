@@ -42,6 +42,23 @@ export function moisPrecedent(reference = new Date()) {
   return creerPeriode(cleJour(new Date(a, m - 1, 1)), cleJour(new Date(a, m, 0)))
 }
 
+/** La semaine en cours, du lundi au dimanche. */
+export function semaineCourante(reference = new Date()) {
+  // getDay() rend 0 pour dimanche ; on decale pour que lundi vaille 0.
+  const depuisLundi = (reference.getDay() + 6) % 7
+  const lundi = new Date(reference)
+  lundi.setDate(reference.getDate() - depuisLundi)
+  const dimanche = new Date(lundi)
+  dimanche.setDate(lundi.getDate() + 6)
+  return creerPeriode(cleJour(lundi), cleJour(dimanche))
+}
+
+/** L'annee civile en cours, du 1er janvier au 31 decembre. */
+export function anneeCourante(reference = new Date()) {
+  const a = reference.getFullYear()
+  return creerPeriode(cleJour(new Date(a, 0, 1)), cleJour(new Date(a, 11, 31)))
+}
+
 /** Les `n` derniers jours, aujourd'hui inclus. */
 export function derniersJours(n, reference = new Date()) {
   const fin = new Date(reference)

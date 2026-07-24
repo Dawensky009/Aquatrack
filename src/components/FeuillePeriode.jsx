@@ -7,14 +7,15 @@ import * as M from '../lib/metrics.js'
  * Choix de la periode consultee.
  *
  * Le bouton « Ce mois » de la maquette n'etait qu'un decor : il ouvre
- * desormais ce selecteur. Quatre choix suffisent — au-dela, on ajouterait un
- * selecteur de dates personnalisees pour un besoin qui, sur un kiosque, ne se
- * presente pas.
+ * desormais ce selecteur. L'ordre suit une echelle de temps croissante — la
+ * semaine, le mois, l'annee, tout — pour qu'on le parcoure sans reflechir.
  */
 export const PERIODES = {
+  semaine: { libelle: 'Cette semaine', calc: () => M.semaineCourante() },
   mois: { libelle: 'Ce mois', calc: () => M.moisCourant() },
   precedent: { libelle: 'Mois dernier', calc: () => M.moisPrecedent() },
   '30j': { libelle: '30 derniers jours', calc: () => M.derniersJours(30) },
+  annee: { libelle: 'Cette année', calc: () => M.anneeCourante() },
   tout: { libelle: 'Depuis le début', calc: () => M.TOUT },
 }
 
