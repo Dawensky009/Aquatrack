@@ -945,7 +945,14 @@ export async function reordonnerCategories(ids) {
 export async function amorcerCategories() {
   const db = await base()
   const existantes = await db.getAll('categories')
-  if (existantes.length > 0) return existantes
+
+  // On ne compte que les categories VIVANTES. Se fier au total, supprimees
+  // comprises, faisait tourner a vide le filet de securite de la synchro : il
+  // voyait « 0 categorie vivante », rappelait amorcer — qui, voyant des lignes
+  // supprimees, ne creait rien — et recommencait sans fin. On repart donc de
+  // categories fraiches uniquement s'il n'en reste aucune de vivante.
+  const vivantes = existantes.filter((c) => !c.deleted)
+  if (vivantes.length > 0) return vivantes
 
   const creees = CATEGORIES_DEFAUT.map(({ cle, ...c }) => ({ ...c, id: crypto.randomUUID() }))
   for (const c of creees) await enregistrerCategorie(c)

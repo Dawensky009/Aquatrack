@@ -48,6 +48,13 @@ let promesseInit = null
 let masqueDepuis = null
 
 /**
+ * Le filet de securite « aucune categorie » n'a le droit de semer qu'UNE fois
+ * par session. Au-dela, c'est le signe d'une boucle, pas d'un manque : mieux
+ * vaut s'arreter que gonfler la table de categories a chaque cycle.
+ */
+let filetTire = false
+
+/**
  * Masquage des montants — preference d'appareil, dans localStorage.
  *
  * Ni dans les reglages synchronises ni dans IndexedDB : c'est un choix de
@@ -432,10 +439,15 @@ export const useStore = create((set, get) => ({
     // Le cas se produit quand on abandonne les categories amorcees d'office
     // pour recevoir celles du kiosque, et que le kiosque n'en a aucune : rien
     // ne remplace ce qu'on vient de jeter.
-    if (get().categories.length === 0) {
+    //
+    // UNE SEULE FOIS par session (`filetTire`) : sans ce verrou, un etat ou
+    // les categories restent a zero relancerait la synchro sans fin, et chaque
+    // passage semait de nouvelles categories — d'ou une table qui enflait.
+    if (get().categories.length === 0 && !filetTire) {
+      filetTire = true
       await db.amorcerCategories()
       await get().recharger()
-      declencherSync().then((r) => get().apresSync(r))
+      get().apresEcriture()
       return
     }
 

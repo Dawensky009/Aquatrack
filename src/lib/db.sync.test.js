@@ -5,6 +5,8 @@ import {
   enregistrerCategorie,
   enregistrerDepense,
   adopterCategorie,
+  amorcerCategories,
+  supprimer,
   fusionnerDepuisServeur,
   idsOutboxEnAttente,
   chargerTout,
@@ -120,5 +122,23 @@ describe('adopterCategorie', () => {
     // La dépense pointe désormais vers la catégorie gardée.
     expect(depenses.every((d) => d.category_id !== doublon.id)).toBe(true)
     expect(depenses.some((d) => d.category_id === gardee.id)).toBe(true)
+  })
+})
+
+describe('amorcerCategories', () => {
+  it('recrée des catégories quand il n’en reste aucune de VIVANTE', async () => {
+    // Supprime toute catégorie encore vivante (suppression logique).
+    for (const c of (await chargerTout()).categories) {
+      await supprimer('categories', c.id)
+    }
+    // Il reste des lignes (des tombes), mais zéro vivante.
+    expect((await chargerTout()).categories.length).toBe(0)
+
+    // L'ancienne version voyait « des lignes existent » et ne créait rien,
+    // laissant l'appareil sans catégorie utilisable. Elle doit maintenant
+    // repartir de catégories fraîches.
+    const creees = await amorcerCategories()
+    expect(creees.length).toBeGreaterThanOrEqual(3)
+    expect((await chargerTout()).categories.length).toBeGreaterThanOrEqual(3)
   })
 })
