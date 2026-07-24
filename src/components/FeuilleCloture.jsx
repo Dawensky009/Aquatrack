@@ -5,6 +5,7 @@ import BoutonSupprimer from './BoutonSupprimer.jsx'
 import { ChampMontant, ChampNombre, ChampDate } from './Champs.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
 import * as M from '../lib/metrics.js'
+import { celebrerCloture } from '../lib/celebration.js'
 import {
   cleJour, formatHTG, formatPrix, formatGallons, formatDateLongue, lireNombre,
 } from '../lib/format.js'
@@ -121,6 +122,9 @@ export default function FeuilleCloture({ dateInitiale }) {
       prix_reference: prix,
       note: '',
     })
+    // La fete salue une recette de PLUS, pas la correction d'une ligne
+    // existante — modifier un chiffre n'est pas encaisser.
+    if (!existante) celebrerCloture()
     fermerFeuille()
   }
 

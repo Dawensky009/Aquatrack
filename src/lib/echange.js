@@ -126,11 +126,9 @@ const COLS_DEPENSES_XLSX = [
   { titre: 'Identifiant', largeur: 38, valeur: (d) => d.id },
 ]
 
-export async function exporterExcel() {
-  const { journees, depenses, categories, recus } = await db.chargerTout()
-
-  const recettes = [...journees].sort((a, b) => a.date.localeCompare(b.date))
-  const lignesDepenses = [...depenses]
+/** Enrichit les depenses pour l'export : date lisible, categorie, nb de recus. */
+function enrichirDepenses(depenses, categories, recus) {
+  return [...depenses]
     .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
     .map((d) => ({
       ...d,
@@ -139,6 +137,13 @@ export async function exporterExcel() {
       suitGallons: !!categories.find((c) => c.id === d.category_id)?.suit_gallons,
       nbRecus: recus.filter((r) => r.depense_id === d.id).length,
     }))
+}
+
+export async function exporterExcel() {
+  const { journees, depenses, categories, recus } = await db.chargerTout()
+
+  const recettes = [...journees].sort((a, b) => a.date.localeCompare(b.date))
+  const lignesDepenses = enrichirDepenses(depenses, categories, recus)
 
   const blob = construireXLSX([
     { nom: 'Recettes', colonnes: COLS_RECETTES_XLSX, lignes: recettes },
@@ -146,6 +151,31 @@ export async function exporterExcel() {
   ])
 
   telecharger(blob, `aqua-track-${horodatage()}.xlsx`, blob.type)
+  return { recettes: recettes.length, depenses: lignesDepenses.length }
+}
+
+/**
+ * Export Excel d'un SOUS-ENSEMBLE deja filtre — ce que le journal affiche a
+ * l'ecran (periode + type/categorie). Contrairement a `exporterExcel`, on ne
+ * relit pas la base : les lignes arrivent telles quelles depuis l'appelant.
+ *
+ * Une feuille n'est incluse que si elle porte des lignes : filtrer sur
+ * « Revenus » ne produit donc pas une feuille Depenses vide, et inversement.
+ * Renvoie `null` s'il n'y a rien a exporter.
+ */
+export function exporterExcelFiltre({ journees, depenses, categories, recus, suffixe }) {
+  const recettes = [...journees].sort((a, b) => a.date.localeCompare(b.date))
+  const lignesDepenses = enrichirDepenses(depenses, categories, recus)
+
+  const feuilles = []
+  if (recettes.length) feuilles.push({ nom: 'Recettes', colonnes: COLS_RECETTES_XLSX, lignes: recettes })
+  if (lignesDepenses.length) {
+    feuilles.push({ nom: 'Dépenses', colonnes: COLS_DEPENSES_XLSX, lignes: lignesDepenses })
+  }
+  if (!feuilles.length) return null
+
+  const blob = construireXLSX(feuilles)
+  telecharger(blob, `aqua-track-${suffixe || horodatage()}.xlsx`, blob.type)
   return { recettes: recettes.length, depenses: lignesDepenses.length }
 }
 

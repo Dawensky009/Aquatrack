@@ -78,6 +78,52 @@ export function anneePrecedenteAuMemeJour(reference = new Date()) {
   return creerPeriode(cleJour(new Date(a, 0, 1)), cleJour(fin))
 }
 
+/* --- Comparaison de deux periodes CHOISIES --------------------------------
+   La carte Comparaison laisse choisir les deux mois — ou les deux annees — a
+   confronter. La regle d'honnetete tient toujours : si l'un des deux est la
+   periode EN COURS, forcement partielle, on tronque l'autre au meme quantieme.
+   Deux periodes passees completes, elles, se comparent en entier. */
+
+/** Date sure : borne le quantieme au dernier jour du mois vise (28/29/30/31). */
+function jourBorne(annee, mois, quantieme) {
+  const dernier = new Date(annee, mois + 1, 0).getDate()
+  return new Date(annee, mois, Math.min(quantieme, dernier))
+}
+
+/**
+ * Compare le revenu de deux mois `{ annee, mois }`. Renvoie les deux totaux et
+ * `tronque` : vrai quand la comparaison a ete ramenee « a meme date » parce
+ * que l'un des mois est celui en cours.
+ */
+export function comparerMois(etat, a, b, reference = new Date()) {
+  const estCourant = (p) => p.annee === reference.getFullYear() && p.mois === reference.getMonth()
+  const tronque = estCourant(a) !== estCourant(b)
+  const quantieme = tronque ? reference.getDate() : 31
+
+  const totalDe = (p) =>
+    totalRevenus(
+      etat,
+      creerPeriode(cleJour(new Date(p.annee, p.mois, 1)), cleJour(jourBorne(p.annee, p.mois, quantieme))),
+    )
+
+  return { a: totalDe(a), b: totalDe(b), tronque }
+}
+
+/** Idem pour deux annees civiles (des nombres). */
+export function comparerAnnees(etat, a, b, reference = new Date()) {
+  const estCourante = (an) => an === reference.getFullYear()
+  const tronque = estCourante(a) !== estCourante(b)
+
+  const totalDe = (an) => {
+    const fin = tronque
+      ? jourBorne(an, reference.getMonth(), reference.getDate())
+      : new Date(an, 11, 31)
+    return totalRevenus(etat, creerPeriode(cleJour(new Date(an, 0, 1)), cleJour(fin)))
+  }
+
+  return { a: totalDe(a), b: totalDe(b), tronque }
+}
+
 /** Les `n` derniers jours, aujourd'hui inclus. */
 export function derniersJours(n, reference = new Date()) {
   const fin = new Date(reference)

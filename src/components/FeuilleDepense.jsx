@@ -8,6 +8,7 @@ import BoutonSupprimer from './BoutonSupprimer.jsx'
 import { enregistrerRecu, supprimerRecu } from '../lib/db.js'
 import { useStore, useEtat } from '../store/useStore.js'
 import * as M from '../lib/metrics.js'
+import { celebrerDepense } from '../lib/celebration.js'
 import {
   cleJour, formatPrix, formatHTG, formatDateLongue, lireNombre, formatPourcent,
 } from '../lib/format.js'
@@ -190,6 +191,8 @@ export default function FeuilleDepense({ depense }) {
     } finally {
       setEnCours(false)
     }
+    // Accuse de reception discret, reserve a une depense NOUVELLE.
+    if (!depense) celebrerDepense()
     fermerFeuille()
   }
 

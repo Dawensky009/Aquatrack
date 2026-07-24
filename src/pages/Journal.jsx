@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ScrollText, Search, X } from 'lucide-react'
+import { ScrollText, Search, X, Download, Check } from 'lucide-react'
 import EnTete from '../components/EnTete.jsx'
 import SegmentPills from '../components/SegmentPills.jsx'
 import EtatVide from '../components/EtatVide.jsx'
@@ -7,6 +7,7 @@ import LigneJournal, { versLigne } from '../components/LigneJournal.jsx'
 import VueCalendrier from '../components/VueCalendrier.jsx'
 import SelecteurMois from '../components/SelecteurMois.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
+import { exporterExcelFiltre } from '../lib/echange.js'
 import { formatHTG, cleJour, normaliser, MONTANT_MASQUE } from '../lib/format.js'
 
 /**
@@ -46,8 +47,13 @@ export default function Journal() {
   const [filtre, setFiltre] = useState('tout')
   const [recherche, setRecherche] = useState('')
   const maintenant = new Date()
-  const [annee, setAnnee] = useState(maintenant.getFullYear())
-  const [mois, setMois] = useState(maintenant.getMonth())
+  // La periode consultee est une PLAGE de mois : { debut, fin }, chacun
+  // { annee, mois }. Un seul mois se represente par debut === fin.
+  const moisCourant = { annee: maintenant.getFullYear(), mois: maintenant.getMonth() }
+  const [plage, setPlage] = useState({ debut: moisCourant, fin: moisCourant })
+
+  const plageMultiple =
+    plage.debut.annee !== plage.fin.annee || plage.debut.mois !== plage.fin.mois
 
   const requete = normaliser(recherche.trim())
   const enRecherche = requete.length > 0
@@ -67,14 +73,15 @@ export default function Journal() {
     () =>
       enRecherche
         ? chercherPartout(etat, requete, filtreEffectif)
-        : filtrerMois(etat, annee, mois, filtreEffectif),
-    [etat, annee, mois, filtreEffectif, requete, enRecherche],
+        : filtrerPlage(etat, plage, filtreEffectif),
+    [etat, plage, filtreEffectif, requete, enRecherche],
   )
   const annees = useMemo(() => anneesAvecDonnees(etat), [etat])
 
-  // La recherche parcourt tout l'historique : le calendrier, lui, n'a de sens
-  // que sur un mois donne. On bascule donc en liste tant qu'on cherche.
-  const vueEffective = enRecherche ? 'liste' : vue
+  // Le calendrier n'a de sens que sur UN mois : ni pendant une recherche (qui
+  // traverse tout l'historique), ni sur une plage de plusieurs mois. Dans ces
+  // cas on force la liste.
+  const vueEffective = enRecherche || plageMultiple ? 'liste' : vue
 
   return (
     <>
@@ -86,15 +93,16 @@ export default function Journal() {
           tous les mois. On les retire plutot que de les laisser inertes. */}
       {!enRecherche && (
         <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center">
-          <SegmentPills options={VUES} valeur={vue} onChange={setVue} className="lg:w-64" />
-          <div className="lg:w-72">
+          {/* Le choix Liste / Calendrier disparait sur une plage de plusieurs
+              mois : le calendrier ne montre qu'un mois a la fois. */}
+          {!plageMultiple && (
+            <SegmentPills options={VUES} valeur={vue} onChange={setVue} className="lg:w-64" />
+          )}
+          <div className="lg:w-72 lg:flex-1">
             <SelecteurMois
-              annee={annee}
-              mois={mois}
-              onChange={(a, m) => {
-                setAnnee(a)
-                setMois(m)
-              }}
+              debut={plage.debut}
+              fin={plage.fin}
+              onChange={(debut, fin) => setPlage({ debut, fin })}
               anneesDisponibles={annees}
             />
           </div>
@@ -107,7 +115,7 @@ export default function Journal() {
       <section className="carte mb-3">
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-[13px]" style={{ color: 'var(--texte-doux)' }}>
-            {enRecherche ? 'Net des résultats' : 'Net du mois'}
+            {enRecherche ? 'Net des résultats' : plageMultiple ? 'Net de la période' : 'Net du mois'}
           </span>
           <span className="chiffre-stat">{m(formatHTG(d.net))}</span>
         </div>
@@ -129,8 +137,8 @@ export default function Journal() {
             journees={d.journees}
             categories={etat.categories}
             depenses={d.depenses}
-            annee={annee}
-            mois={mois}
+            annee={plage.debut.annee}
+            mois={plage.debut.mois}
             onJour={(c) => ouvrirFeuille('cloture', { date: c.date })}
           />
         </section>
@@ -140,6 +148,20 @@ export default function Journal() {
             filtre={filtreEffectif}
             onChange={setFiltre}
             categories={etat.categories}
+            action={
+              <BoutonExport
+                disabled={d.lignes.length === 0}
+                onExport={() =>
+                  exporterExcelFiltre({
+                    journees: journeesAExporter(d, filtreEffectif),
+                    depenses: depensesAExporter(d, filtreEffectif),
+                    categories: etat.categories,
+                    recus: etat.recus,
+                    suffixe: suffixeExport(plage, filtreEffectif, etat.categories),
+                  })
+                }
+              />
+            }
           />
 
           {d.lignes.length === 0 ? (
@@ -159,7 +181,7 @@ export default function Journal() {
               {/* `key` sur le filtre + la période : la liste se rejoue à chaque
                   changement, ce qui fait « respirer » le résultat sans être un
                   spectacle. Le décalage par ligne est plafonné à 12. */}
-              <ul key={`${filtreEffectif}-${annee}-${mois}-${requete}`} className="anim-liste">
+              <ul key={`${filtreEffectif}-${cleDePlage(plage)}-${requete}`} className="anim-liste">
                 {d.lignes.map((l, i) => (
                   <li key={l.cle} style={{ '--i': Math.min(i, 12) }}>
                     <LigneJournal
@@ -193,7 +215,7 @@ export default function Journal() {
  * était de même rang que « Revenus ». Chaque catégorie porte sa pastille de
  * couleur, la même qu'ailleurs dans l'app — on la reconnaît d'un coup d'œil.
  */
-function BarreFiltres({ filtre, onChange, categories }) {
+function BarreFiltres({ filtre, onChange, categories, action }) {
   const pastille = (valeur, libelle, couleur) => {
     const actif = valeur === filtre
     return (
@@ -223,17 +245,50 @@ function BarreFiltres({ filtre, onChange, categories }) {
   }
 
   return (
-    <div className="defile-x mb-3 flex items-center gap-2 pb-1">
-      {FILTRES_BASE.map((f) => pastille(f.valeur, f.libelle))}
-      {categories.length > 0 && (
-        <span
-          aria-hidden="true"
-          className="mx-0.5 h-5 w-px shrink-0"
-          style={{ background: 'var(--bordure)' }}
-        />
-      )}
-      {categories.map((c) => pastille(`cat:${c.id}`, c.nom, c.color))}
+    <div className="mb-3 flex items-center gap-2">
+      {/* Les filtres defilent horizontalement ; l'action d'export reste
+          ancrée à droite, hors du defilement, toujours atteignable. */}
+      <div className="defile-x flex items-center gap-2 pb-1">
+        {FILTRES_BASE.map((f) => pastille(f.valeur, f.libelle))}
+        {categories.length > 0 && (
+          <span
+            aria-hidden="true"
+            className="mx-0.5 h-5 w-px shrink-0"
+            style={{ background: 'var(--bordure)' }}
+          />
+        )}
+        {categories.map((c) => pastille(`cat:${c.id}`, c.nom, c.color))}
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
+  )
+}
+
+/**
+ * Bouton d'export Excel du journal filtre.
+ *
+ * Un bref « Exporté ✓ » confirme le telechargement : sur telephone, rien ne
+ * dit qu'un fichier est parti si l'ecran ne bronche pas.
+ */
+function BoutonExport({ onExport, disabled }) {
+  const [fait, setFait] = useState(false)
+  return (
+    <button
+      onClick={() => {
+        const r = onExport()
+        if (r) {
+          setFait(true)
+          setTimeout(() => setFait(false), 2200)
+        }
+      }}
+      disabled={disabled}
+      aria-label="Exporter en Excel"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] transition-colors disabled:opacity-40"
+      style={{ background: 'var(--surface-doux)', color: fait ? 'var(--vert)' : 'var(--texte-doux)' }}
+    >
+      {fait ? <Check size={15} strokeWidth={2.25} /> : <Download size={15} strokeWidth={2} />}
+      <span className="hidden sm:inline">{fait ? 'Exporté' : 'Excel'}</span>
+    </button>
   )
 }
 
@@ -320,9 +375,9 @@ function chercherPartout(etat, requete, filtre) {
   return { lignes, revenus, totalDepenses, net: revenus - totalDepenses }
 }
 
-function filtrerMois(etat, annee, mois, filtre) {
-  const debut = cleJour(new Date(annee, mois, 1))
-  const fin = cleJour(new Date(annee, mois + 1, 0))
+function filtrerPlage(etat, plage, filtre) {
+  const debut = cleJour(new Date(plage.debut.annee, plage.debut.mois, 1))
+  const fin = cleJour(new Date(plage.fin.annee, plage.fin.mois + 1, 0))
   const dans = (cle) => cle >= debut && cle <= fin
 
   const journees = etat.journees.filter((j) => dans(j.date))
@@ -340,6 +395,41 @@ function filtrerMois(etat, annee, mois, filtre) {
     net: revenus - totalDepenses,
     nbCloturees: journees.length,
   }
+}
+
+/* --- Export : quoi exporter, sous quel nom, selon le filtre courant --------
+   Le fichier reflete exactement ce qui est a l'ecran. Un filtre « Revenus »
+   n'exporte que les recettes ; un filtre de categorie, que ses depenses. */
+
+const moisCle = (x) => `${x.annee}-${String(x.mois + 1).padStart(2, '0')}`
+const cleDePlage = (p) => `${moisCle(p.debut)}_${moisCle(p.fin)}`
+
+function journeesAExporter(d, filtre) {
+  return filtre === 'tout' || filtre === 'revenu' ? d.journees : []
+}
+
+function depensesAExporter(d, filtre) {
+  if (filtre === 'revenu') return []
+  if (filtre.startsWith('cat:')) {
+    const id = filtre.slice(4)
+    return d.depenses.filter((x) => x.category_id === id)
+  }
+  return d.depenses
+}
+
+/** Suffixe de nom de fichier : periode + intitule du filtre, en clair. */
+function suffixeExport(plage, filtre, categories) {
+  let s = moisCle(plage.debut)
+  if (plage.debut.annee !== plage.fin.annee || plage.debut.mois !== plage.fin.mois) {
+    s += `_a_${moisCle(plage.fin)}`
+  }
+  if (filtre === 'revenu') s += '_recettes'
+  else if (filtre === 'depense') s += '_depenses'
+  else if (filtre.startsWith('cat:')) {
+    const nom = categories.find((c) => c.id === filtre.slice(4))?.nom
+    if (nom) s += '_' + normaliser(nom).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  }
+  return s
 }
 
 /** Annees pour lesquelles il existe au moins une operation. */

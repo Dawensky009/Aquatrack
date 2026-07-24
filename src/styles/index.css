@@ -210,6 +210,30 @@ input[inputmode='numeric'],
   animation-delay: 215ms;
 }
 
+/* Cases du calendrier : creux au repos, elles se soulevent au survol pour
+   inviter le clic. Le `transform`/`box-shadow` reste sur la case seule (pas
+   de repaint du voisinage), et l'appui l'enfonce legerement.
+   Le survol est reserve aux vrais pointeurs — sur tactile, `:active` suffit et
+   un etat de survol « colle » apres le tap serait deroutant. */
+.case-cal {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+.case-cal:active {
+  transform: scale(0.95);
+}
+@media (hover: hover) {
+  .case-cal:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
+    outline: 1.5px solid var(--accent);
+    outline-offset: -1.5px;
+    z-index: 1;
+  }
+}
+
 /* Code faux : une secousse breve dit « recommencez » sans texte a lire. */
 @keyframes secousse {
   0%,

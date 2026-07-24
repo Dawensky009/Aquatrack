@@ -74,7 +74,7 @@ function Case({ donnees, max, estAujourdhui, futur, onClick }) {
       // Carree sur telephone, ou la largeur de colonne est deja petite ; plus
       // basse sur grand ecran, sinon une colonne de 160px donnerait des cases
       // de 160px de haut, vides aux trois quarts.
-      className="relative flex aspect-square flex-col justify-between overflow-hidden rounded-[10px] p-1.5 text-left transition-transform active:scale-95 md:aspect-[4/3] lg:aspect-[2/1]"
+      className="case-cal relative flex aspect-square flex-col justify-between overflow-hidden rounded-[10px] p-1.5 text-left md:aspect-[4/3] lg:aspect-[2/1]"
       style={{
         background: cloturee ? 'var(--surface-doux)' : 'transparent',
         border: manquante

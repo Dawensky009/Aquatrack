@@ -888,3 +888,64 @@ describe('format', () => {
     expect(lireNombre('0')).toBe(0)
   })
 })
+
+/* --------------------------------------------------------------------------
+   Comparaison de deux periodes choisies : la regle « a meme date »
+   -------------------------------------------------------------------------- */
+
+describe('comparerMois', () => {
+  // Reference figee au 24 juillet 2026, pour un test deterministe.
+  const REF = new Date(2026, 6, 24, 12, 0)
+
+  const e = etat({
+    journees: [
+      journee('2026-07-10', 1000),
+      journee('2026-07-28', 500), // apres le 24 : ne doit PAS compter en cours de mois
+      journee('2026-06-10', 800),
+      journee('2026-06-30', 400), // apres le 24 : exclu quand on tronque
+      journee('2026-05-15', 300),
+    ],
+  })
+
+  it('tronque le mois passe au quantieme du mois EN COURS', () => {
+    const r = M.comparerMois(e, { annee: 2026, mois: 6 }, { annee: 2026, mois: 5 }, REF)
+    expect(r.tronque).toBe(true)
+    expect(r.a).toBe(1000) // juillet jusqu'au 24 : 1000 (le 28 est ignore)
+    expect(r.b).toBe(800) // juin jusqu'au 24 : 800 (le 30 est ignore)
+  })
+
+  it('compare deux mois passes en ENTIER', () => {
+    const r = M.comparerMois(e, { annee: 2026, mois: 5 }, { annee: 2026, mois: 4 }, REF)
+    expect(r.tronque).toBe(false)
+    expect(r.a).toBe(1200) // juin complet : 800 + 400
+    expect(r.b).toBe(300) // mai complet : 300
+  })
+})
+
+describe('comparerAnnees', () => {
+  const REF = new Date(2026, 6, 24, 12, 0)
+
+  const e = etat({
+    journees: [
+      journee('2026-03-10', 1000),
+      journee('2026-09-01', 900), // apres le 24/07 : exclu quand on tronque l'annee
+      journee('2025-03-10', 700),
+      journee('2025-11-20', 600),
+      journee('2024-06-06', 500),
+    ],
+  })
+
+  it('tronque l’annee passee au meme mois/jour que l’annee EN COURS', () => {
+    const r = M.comparerAnnees(e, 2026, 2025, REF)
+    expect(r.tronque).toBe(true)
+    expect(r.a).toBe(1000) // 2026 jusqu'au 24/07 : le 01/09 est ignore
+    expect(r.b).toBe(700) // 2025 jusqu'au 24/07 : le 20/11 est ignore
+  })
+
+  it('compare deux annees passees en ENTIER', () => {
+    const r = M.comparerAnnees(e, 2025, 2024, REF)
+    expect(r.tronque).toBe(false)
+    expect(r.a).toBe(1300) // 2025 complete : 700 + 600
+    expect(r.b).toBe(500)
+  })
+})
