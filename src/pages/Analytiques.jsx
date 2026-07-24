@@ -42,7 +42,7 @@ export default function Analytiques() {
         onPeriode={() => ouvrirFeuille('periode')}
       />
 
-      <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
+      <div className="anim-cartes grid gap-3 lg:grid-cols-2 lg:items-start">
         {/* Benefice net + activite par jour de la semaine */}
         <CarteHero
           titre="Bénéfice Net"

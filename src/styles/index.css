@@ -171,6 +171,45 @@ input[inputmode='numeric'],
   }
 }
 
+/* Entree d'un element de liste ou d'une carte.
+   Legere remontee + fondu. Combinee a un delai croissant (--i), elle donne le
+   rythme d'une liste qui se pose, sans jamais retenir la lecture : le decalage
+   par element est minuscule et plafonne vite. */
+@keyframes liste-entree {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.anim-liste > * {
+  animation: liste-entree 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* --i, pose par chaque element, echelonne l'entree. Plafonne cote JS. */
+  animation-delay: calc(var(--i, 0) * 28ms);
+}
+
+/* Cascade des cartes d'une page. Le decalage est fixe par nth-child (pas de
+   --i a poser sur chaque carte), et plafonne vite pour ne pas faire attendre
+   le bas de page. */
+.anim-cartes > * {
+  animation: liste-entree 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.anim-cartes > *:nth-child(2) {
+  animation-delay: 45ms;
+}
+.anim-cartes > *:nth-child(3) {
+  animation-delay: 90ms;
+}
+.anim-cartes > *:nth-child(4) {
+  animation-delay: 135ms;
+}
+.anim-cartes > *:nth-child(5) {
+  animation-delay: 180ms;
+}
+.anim-cartes > *:nth-child(n + 6) {
+  animation-delay: 215ms;
+}
+
 /* Code faux : une secousse breve dit « recommencez » sans texte a lire. */
 @keyframes secousse {
   0%,
@@ -191,6 +230,7 @@ input[inputmode='numeric'],
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
