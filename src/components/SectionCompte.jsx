@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Cloud, CloudOff, LogOut, Loader2, MailCheck, Store, UserPlus, Copy, Check, X } from 'lucide-react'
+import { Cloud, CloudOff, LogOut, Loader2, MailCheck, Store, UserPlus, Copy, Check, X, KeyRound } from 'lucide-react'
 import Pastille from './Pastille.jsx'
 import { ChampTexte } from './Champs.jsx'
 import { GroupeReglage } from './LigneReglage.jsx'
@@ -12,6 +12,7 @@ import {
   rejoindreKiosque,
   membresKiosque,
   retirerMembre,
+  changerMotDePasse,
   ErreurAuth,
 } from '../lib/auth.js'
 import { supabaseConfigure } from '../lib/supabase.js'
@@ -122,6 +123,8 @@ export default function SectionCompte() {
           idCourant={session.user?.id}
           onChange={rafraichirKiosque}
         />
+
+        <ChangementMotDePasse />
 
         <button
           onClick={async () => {
@@ -265,6 +268,127 @@ export default function SectionCompte() {
  * alors exactement les memes chiffres, et chaque ligne garde la trace de qui
  * l'a saisie.
  */
+/**
+ * Changement de mot de passe.
+ *
+ * Replié par défaut : c'est une action rare, elle ne doit pas encombrer. À
+ * l'ouverture, trois champs — l'actuel (vérifié côté serveur), le nouveau, et
+ * sa confirmation, pour qu'une faute de frappe ne vous enferme pas dehors.
+ */
+function ChangementMotDePasse() {
+  const [ouvert, setOuvert] = useState(false)
+  const [actuel, setActuel] = useState('')
+  const [nouveau, setNouveau] = useState('')
+  const [confirme, setConfirme] = useState('')
+  const [occupe, setOccupe] = useState(false)
+  const [message, setMessage] = useState(null)
+  const [fait, setFait] = useState(false)
+
+  function fermer() {
+    setOuvert(false)
+    setActuel('')
+    setNouveau('')
+    setConfirme('')
+    setMessage(null)
+    setFait(false)
+  }
+
+  async function soumettre() {
+    if (nouveau.length < 6) {
+      setMessage('Le nouveau mot de passe doit faire au moins 6 caractères.')
+      return
+    }
+    if (nouveau !== confirme) {
+      setMessage('Les deux nouveaux mots de passe ne correspondent pas.')
+      return
+    }
+    setOccupe(true)
+    setMessage(null)
+    try {
+      await changerMotDePasse(actuel, nouveau)
+      setFait(true)
+      setMessage('Mot de passe changé.')
+      setActuel('')
+      setNouveau('')
+      setConfirme('')
+    } catch (e) {
+      setMessage(e instanceof ErreurAuth ? e.message : 'Impossible de changer le mot de passe.')
+    } finally {
+      setOccupe(false)
+    }
+  }
+
+  if (!ouvert) {
+    return (
+      <button
+        onClick={() => setOuvert(true)}
+        className="mt-3 flex w-full items-center gap-2.5 rounded-[14px] px-4 py-3 text-left text-[13px]"
+        style={{ background: 'var(--surface-doux)', color: 'var(--texte-doux)' }}
+      >
+        <KeyRound size={15} strokeWidth={1.75} />
+        Changer le mot de passe
+      </button>
+    )
+  }
+
+  const champ = (val, set, ph, autocomplete) => (
+    <input
+      type="password"
+      value={val}
+      autoComplete={autocomplete}
+      onChange={(e) => set(e.target.value)}
+      onKeyDown={(e) => e.key === 'Enter' && soumettre()}
+      placeholder={ph}
+      className="w-full rounded-[12px] px-3.5 py-2.5 text-sm outline-none"
+      style={{ background: 'var(--surface)', border: '1px solid var(--bordure)' }}
+    />
+  )
+
+  return (
+    <div
+      className="mt-3 flex flex-col gap-2.5 rounded-[14px] p-4"
+      style={{ background: 'var(--surface-doux)' }}
+    >
+      <p className="text-[13px] font-medium">Changer le mot de passe</p>
+
+      {fait ? (
+        <Pastille bloc>
+          <Check size={14} strokeWidth={2.5} className="shrink-0" />
+          <span>Mot de passe changé.</span>
+        </Pastille>
+      ) : (
+        <>
+          {champ(actuel, setActuel, 'Mot de passe actuel', 'current-password')}
+          {champ(nouveau, setNouveau, 'Nouveau mot de passe (6 min.)', 'new-password')}
+          {champ(confirme, setConfirme, 'Confirmer le nouveau', 'new-password')}
+          {message && <Pastille bloc>{message}</Pastille>}
+        </>
+      )}
+
+      <div className="flex gap-2">
+        {!fait && (
+          <button
+            onClick={soumettre}
+            disabled={occupe || !actuel || !nouveau || !confirme}
+            className="flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-medium disabled:opacity-50"
+            style={{ background: 'var(--action)', color: 'var(--sur-action)' }}
+          >
+            {occupe && <Loader2 size={15} className="animate-spin" />}
+            Valider
+          </button>
+        )}
+        <button
+          onClick={fermer}
+          className="flex-1 rounded-full py-2.5 text-[13px]"
+          style={{ background: 'var(--surface)', color: 'var(--texte-doux)' }}
+        >
+          {fait ? 'Fermer' : 'Annuler'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function BlocKiosque({ kiosque, membres, idCourant, onChange }) {
   const [mode, setMode] = useState(null) // null | 'creer' | 'rejoindre'
   const [nom, setNom] = useState('')

@@ -136,28 +136,11 @@ export default function Journal() {
         </section>
       ) : (
         <>
-          {/* Rangée défilable : au-delà de trois filtres fixes, les catégories
-              s'ajoutent, et un simple défilement horizontal les porte toutes
-              sans casser la mise en page. */}
-          <div className="defile-x mb-3 flex gap-2 pb-1">
-            {filtres.map((f) => {
-              const actif = f.valeur === filtreEffectif
-              return (
-                <button
-                  key={f.valeur}
-                  onClick={() => setFiltre(f.valeur)}
-                  className="shrink-0 rounded-full px-3.5 py-1.5 text-[13px] whitespace-nowrap transition-colors"
-                  style={{
-                    background: actif ? 'var(--action)' : 'var(--surface-doux)',
-                    color: actif ? 'var(--sur-action)' : 'var(--texte-doux)',
-                    fontWeight: actif ? 500 : 400,
-                  }}
-                >
-                  {f.libelle}
-                </button>
-              )
-            })}
-          </div>
+          <BarreFiltres
+            filtre={filtreEffectif}
+            onChange={setFiltre}
+            categories={etat.categories}
+          />
 
           {d.lignes.length === 0 ? (
             <div className="carte">
@@ -198,6 +181,59 @@ export default function Journal() {
         </>
       )}
     </>
+  )
+}
+
+/**
+ * Barre de filtres.
+ *
+ * Deux natures de filtre, donc deux groupes SÉPARÉS par un trait : d'abord la
+ * nature de l'opération (tout / revenus / dépenses), puis les catégories. Sans
+ * cette césure, tout s'alignait à plat et « Bouchon » se lisait comme s'il
+ * était de même rang que « Revenus ». Chaque catégorie porte sa pastille de
+ * couleur, la même qu'ailleurs dans l'app — on la reconnaît d'un coup d'œil.
+ */
+function BarreFiltres({ filtre, onChange, categories }) {
+  const pastille = (valeur, libelle, couleur) => {
+    const actif = valeur === filtre
+    return (
+      <button
+        key={valeur}
+        onClick={() => onChange(valeur)}
+        aria-pressed={actif}
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] whitespace-nowrap transition-colors"
+        style={{
+          background: actif ? 'var(--action)' : 'var(--surface-doux)',
+          color: actif ? 'var(--sur-action)' : 'var(--texte-doux)',
+          fontWeight: actif ? 500 : 400,
+        }}
+      >
+        {couleur && (
+          <span
+            aria-hidden="true"
+            className="size-2 shrink-0 rounded-full"
+            // Sur une pastille active (fond sombre), une couleur foncée
+            // dispararaîtrait : on passe alors au blanc.
+            style={{ background: actif ? 'var(--sur-action)' : couleur }}
+          />
+        )}
+        {libelle}
+      </button>
+    )
+  }
+
+  return (
+    <div className="defile-x mb-3 flex items-center gap-2 pb-1">
+      {FILTRES_BASE.map((f) => pastille(f.valeur, f.libelle))}
+      {categories.length > 0 && (
+        <span
+          aria-hidden="true"
+          className="mx-0.5 h-5 w-px shrink-0"
+          style={{ background: 'var(--bordure)' }}
+        />
+      )}
+      {categories.map((c) => pastille(`cat:${c.id}`, c.nom, c.color))}
+    </div>
   )
 }
 

@@ -12,6 +12,7 @@ import GraphePrixAppro from '../components/GraphePrixAppro.jsx'
 import DonutCategories from '../components/DonutCategories.jsx'
 import SuiviLots from '../components/SuiviLots.jsx'
 import CartePrevision from '../components/CartePrevision.jsx'
+import ComparaisonRevenus from '../components/ComparaisonRevenus.jsx'
 import { usePeriode } from '../components/FeuillePeriode.jsx'
 import { useStore, useEtat } from '../store/useStore.js'
 import * as M from '../lib/metrics.js'
@@ -80,6 +81,9 @@ export default function Analytiques() {
             parMois={fenetre === '12m'}
           />
         </section>
+
+        {/* Comparaison période sur période */}
+        <ComparaisonRevenus etat={etat} />
 
         {/* Ou part votre argent */}
         <section className="carte">

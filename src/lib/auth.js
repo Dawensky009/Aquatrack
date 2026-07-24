@@ -66,6 +66,30 @@ export async function inscrire(email, motDePasse) {
   return { session: data.session, confirmationRequise: !data.session }
 }
 
+/**
+ * Change le mot de passe du compte connecte.
+ *
+ * On verifie D'ABORD l'ancien mot de passe en re-authentifiant : `updateUser`
+ * de Supabase ne le demande pas, si bien que sans cette etape quiconque a
+ * l'application ouverte pourrait changer le mot de passe en deux gestes. La
+ * re-authentification renvoie une session pour le MEME compte, donc elle ne
+ * deconnecte pas.
+ */
+export async function changerMotDePasse(actuel, nouveau) {
+  if (!supabaseConfigure) throw new ErreurAuth("La sauvegarde en ligne n'est pas configurée.")
+  if (nouveau.length < 6) throw new ErreurAuth('Le nouveau mot de passe doit faire au moins 6 caractères.')
+
+  const { data } = await supabase.auth.getUser()
+  const email = data?.user?.email
+  if (!email) throw new ErreurAuth('Vous devez être connecté pour changer votre mot de passe.')
+
+  const { error: erreurVerif } = await supabase.auth.signInWithPassword({ email, password: actuel })
+  if (erreurVerif) throw new ErreurAuth('Mot de passe actuel incorrect.')
+
+  const { error } = await supabase.auth.updateUser({ password: nouveau })
+  if (error) throw new ErreurAuth(traduire(error))
+}
+
 export async function deconnecter() {
   if (!supabaseConfigure) return
   await supabase.auth.signOut()

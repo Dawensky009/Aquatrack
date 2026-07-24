@@ -59,6 +59,25 @@ export function anneeCourante(reference = new Date()) {
   return creerPeriode(cleJour(new Date(a, 0, 1)), cleJour(new Date(a, 11, 31)))
 }
 
+/* --- Periodes « a meme date » : pour comparer sans tricher -----------------
+   Comparer un mois entier a un mois a moitie ecoule fausse tout. Ces plages
+   s'arretent au meme quantieme, pour une comparaison honnete. */
+
+export function moisCourantAuMemeJour(reference = new Date()) {
+  const debut = new Date(reference.getFullYear(), reference.getMonth(), 1)
+  return creerPeriode(cleJour(debut), cleJour(reference))
+}
+
+export function anneeCouranteAuMemeJour(reference = new Date()) {
+  return creerPeriode(cleJour(new Date(reference.getFullYear(), 0, 1)), cleJour(reference))
+}
+
+export function anneePrecedenteAuMemeJour(reference = new Date()) {
+  const a = reference.getFullYear() - 1
+  const fin = new Date(a, reference.getMonth(), reference.getDate())
+  return creerPeriode(cleJour(new Date(a, 0, 1)), cleJour(fin))
+}
+
 /** Les `n` derniers jours, aujourd'hui inclus. */
 export function derniersJours(n, reference = new Date()) {
   const fin = new Date(reference)
